@@ -84,6 +84,7 @@ export function SitePanel({ siteId, indicators, onBack }: Props) {
                           width={96}
                           height={72}
                           unoptimized
+                          crossOrigin="anonymous"
                           className="h-18 w-24 rounded-md border object-cover"
                         />
                       </dd>
@@ -114,6 +115,7 @@ export function SitePanel({ siteId, indicators, onBack }: Props) {
                             width={160}
                             height={120}
                             unoptimized
+                            crossOrigin="anonymous"
                             className="aspect-4/3 w-full rounded-md border object-cover"
                           />
                           <span className="sr-only">(full size, opens in a new tab)</span>

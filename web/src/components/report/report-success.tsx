@@ -54,6 +54,7 @@ export function ReportSuccess({ report, site, indicator, onReportAnother }: Prop
                 width={160}
                 height={120}
                 unoptimized
+                crossOrigin="anonymous"
                 className="h-30 w-40 rounded-lg border object-cover"
               />
             </dd>
