@@ -21,10 +21,12 @@ Next.js app on Vercel (stream-to-clinic.vercel.app)
 Caddy on the EC2 host (oneaquahealth.duckdns.org, Let's Encrypt)
    ├─ GET /fhir/*  ───────────► HAPI FHIR JPA Server (R4) ──► PostgreSQL
    │   (read-only for the public; writes answer 405)
+   ├─ /hooks/*  ──────────────► 404 (Subscription callbacks are internal only)
    └─ everything else ────────► API (Fastify, TypeScript)
-                                  ├─ maps citizen reports to OAH profiles
+                                  ├─ maps citizen reports (and photos) to FHIR
                                   ├─ risk engine (+ Open-Meteo weather)
                                   └─ writes DetectedIssue / Communication to HAPI
+HAPI ── rest-hook Subscription (internal network) ──► API /hooks/observation
 ```
 
 ## Tech stack
@@ -63,24 +65,30 @@ Caddy on the EC2 host (oneaquahealth.duckdns.org, Let's Encrypt)
 | Concept | Resource | Notes |
 |---|---|---|
 | Stream site | `Location` (`LocationOah`) | Ids, identifiers, names and coordinates from the IG examples: `Loc-Almyros`, `Loc-Giofyros`, `Loc-Giofyros-LowerReach`, `Loc-Benevento`. `partOf` points to the water body (plain `Location`); `address.text` holds the region. `GET /sites` lists every `LocationOah` |
-| Citizen report | `Observation` (`ObservationIndicatorsOah`) | Quantities in UCUM; presence indicators (foam, algae, diptera) coded `absent`/`present`/`abundant` from our `CodeSystem/presence` |
+| Citizen report | `Observation` (`ObservationIndicatorsOah`) | Quantities in UCUM; presence indicators (foam, algae, diptera) coded `absent`/`present`/`abundant` from our `CodeSystem/presence`. `derivedFrom` → the report photo's `Media`, if any |
+| Report photo | `Media` + `Binary` | `Media` (type image, subject = site, operator = reporter) whose `content.url` is the `Binary` holding the JPEG/PNG/WebP bytes (≤ 1.5 MB, file signature checked). Binary, Media and Observation are written in one transaction. `GET /photos/<mediaId>` serves the bytes |
 | Clinic | `Organization` | Fictional, names end in "(demo)" |
 | Clinic serves site | `HealthcareService` | `providedBy` the clinic, `coverageArea` the sites it serves (standard R4, no extension) |
 | District cohort | `Group` (`GroupOah`) | `cohort-<siteId>`: residents living near a site (IG "Living place" characteristic) |
 | Health baseline | `Observation` (`ObservationHealthMeasureOah`) | OAH codes `gastrointestinal`, `campylobacter`; subject = site, focus = cohort, previous calendar year |
-| Alert | `DetectedIssue` | Identifier `…/sid/alert` = `<siteId>:<risk>` (one active issue per site and risk); `code` from our `CodeSystem/water-health-risk`; `implicated` = site; one `evidence` entry per reason, with `detail` → triggering Observations; `mitigation.action.text` = what clinicians should watch for. Active until `identifiedPeriod.end` is set, which happens when a re-evaluation no longer fires the rule |
+| Alert | `DetectedIssue` | Identifier `…/sid/alert` = `<siteId>:<risk>` (one active issue per site and risk); `code` from our `CodeSystem/water-health-risk`; `implicated` = site; one `evidence` entry per reason, with `detail` → triggering Observations; `mitigation.action.text` = what clinicians should watch for; `detail` = a summary line, then the numbered step-by-step narrative ("How the risk engine decided:"), which `AlertSummary.narrative` is parsed from. Active until `identifiedPeriod.end` is set, which happens when a re-evaluation no longer fires the rule |
 | Clinic notification | `Communication` | Category `alert`, `about` → DetectedIssue, `recipient` → clinic, `subject` → district cohort. Sent once per clinic when the issue is raised; none for low oxygen (environmental only) |
+| Observation trigger | `Subscription` | `citizen-observations`: rest-hook, criteria `Observation?_profile=…/observation-indicators-oah`, payload `application/fhir+json`, endpoint `http://api:3000/hooks/observation` (internal Docker network) |
 
 Seed data (`api/src/seed.ts`) is one transaction of PUTs with fixed ids, applied on every API start (idempotent; HAPI skips unchanged resources). Synthetic resources carry the `HTEST` tag. The seed includes two weeks of citizen history per site, dated relative to the start time, then every site is evaluated once.
 
-The risk engine (`api/src/rules.ts`, pure) implements the rules in PLAN.md section 7 and records a plain-language reason for every condition, met or not (logged as `risk decision`). `api/src/alerts.ts` turns decisions into FHIR resources; it runs after every `POST /reports` for that site. If Open-Meteo is down, rain-dependent rules do not fire and the reason says the weather was unavailable. For demo recordings, `WEATHER_OVERRIDE='{"rain24h":0,"rain7d":1.2}'` fixes rainfall; reasons then say "demo weather override".
+The risk engine (`api/src/rules.ts`, pure) implements the rules in PLAN.md section 7 and records a plain-language reason for every condition, met or not (logged as `risk decision`), plus why it chose the level. `api/src/narrative.ts` turns a fired decision into the step-by-step narrative (reports reviewed, weather, each check, level, who was notified). `api/src/alerts.ts` turns decisions into FHIR resources; evaluations of one site are serialised, so concurrent triggers cannot raise duplicate issues.
+
+A site is re-evaluated on two paths:
+1. **`POST /reports`** evaluates synchronously, because the citizen's response lists the alerts raised.
+2. **FHIR Subscription**, the standard path for Observations written to the FHIR server by other systems. HAPI matches every new or updated citizen indicator Observation against the `citizen-observations` Subscription and delivers it as `PUT /hooks/observation/Observation/<id>` to the API over the internal Docker network. The API answers 204 at once (HAPI parses any response body as FHIR) and queues an evaluation of the Observation's site. Queued evaluations for a site coalesce, so a burst of notifications costs one evaluation. The hook never writes Observations, so there is no loop. Reports from the API trigger the hook too; the second evaluation is idempotent. Caddy answers 404 for `/hooks*`, and the API also refuses hook calls carrying proxy headers (`X-Forwarded-For`, `X-Forwarded-Host`, `Via`). If Open-Meteo is down, rain-dependent rules do not fire and the reason says the weather was unavailable. For demo recordings, `WEATHER_OVERRIDE='{"rain24h":0,"rain7d":1.2}'` fixes rainfall; reasons then say "demo weather override".
 
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `web/` | Next.js frontend |
-| `api/` | Fastify API: `src/server.ts` routes, `src/fhir.ts` client, `src/oah.ts` codes, `src/mapping.ts` report mapping, `src/store.ts` site/clinic reads, `src/seed.ts` demo data, `src/rules.ts` risk rules, `src/weather.ts` Open-Meteo, `src/alerts.ts` DetectedIssue/Communication; `test/` unit tests (`npm test`) |
+| `api/` | Fastify API: `src/server.ts` routes, `src/fhir.ts` client, `src/oah.ts` codes, `src/mapping.ts` report mapping, `src/store.ts` site/clinic reads, `src/seed.ts` demo data, `src/rules.ts` risk rules, `src/weather.ts` Open-Meteo, `src/alerts.ts` DetectedIssue/Communication, `src/narrative.ts` alert narrative, `src/photos.ts` report photos (Media/Binary); `test/` unit tests (`npm test`) |
 | `fhir/application.yaml` | HAPI overrides (Postgres, R4, server address, subscriptions, CORS) |
 | `deploy/compose.yml` | Production stack: postgres, hapi, api (memory limits set) |
 | `deploy/compose.local.yml` | Local override publishing ports 8080 (HAPI) and 3001 (API) |

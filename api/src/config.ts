@@ -9,6 +9,10 @@ export const config = {
   fhirBaseUrl: required("FHIR_BASE_URL", "http://localhost:8080/fhir"),
   // Base URL of the FHIR server as the public sees it, used for links in responses.
   publicFhirUrl: required("PUBLIC_FHIR_URL", "https://oneaquahealth.duckdns.org/fhir"),
+  // Base URL of this API as the public sees it, used for photo links.
+  publicApiUrl: required("PUBLIC_API_URL", "https://oneaquahealth.duckdns.org"),
+  // Where HAPI delivers Observation notifications (FHIR rest-hook Subscription); internal network only.
+  hookUrl: required("HOOK_URL", "http://api:3000/hooks/observation"),
   // Seed demo data on startup; set SEED=false to skip.
   seed: process.env.SEED !== "false",
   // Fixed rainfall for demo recordings, e.g. {"rain24h":0,"rain7d":1.2}; reasons then say

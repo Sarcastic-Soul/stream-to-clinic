@@ -8,22 +8,25 @@ export type RiskLevel = "none" | "low" | "medium" | "high";
 
 export const RISK_LEVELS: readonly RiskLevel[] = ["none", "low", "medium", "high"];
 
-export const RISKS: Record<RiskId, { title: string; watchFor: string }> = {
+export const RISKS: Record<RiskId, { title: string; watchFor: string; usesWeather: boolean }> = {
   "algal-bloom": {
     title: "Possible algal bloom",
     watchFor:
       "Skin irritation, rashes and gastrointestinal symptoms (nausea, vomiting, diarrhoea) after contact with stream water.",
+    usesWeather: true,
   },
   "sewage-overflow": {
     title: "Possible sewage overflow",
     watchFor: "Gastrointestinal infections (diarrhoea, vomiting, fever) in people exposed to stream water.",
+    usesWeather: true,
   },
   "mosquito-breeding": {
     title: "Mosquito breeding conditions",
     watchFor: "Vector-borne disease: unexplained fever, headache, rash or joint pain after mosquito bites.",
+    usesWeather: true,
   },
   // Environmental only: no clinic communication.
-  "low-oxygen": { title: "Low dissolved oxygen", watchFor: "" },
+  "low-oxygen": { title: "Low dissolved oxygen", watchFor: "", usesWeather: false },
 };
 
 export const THRESHOLDS = {
@@ -54,6 +57,7 @@ export interface RiskDecision {
   risk: RiskId;
   fired: boolean;
   level: RiskLevel;
+  levelReason: string; // why this level, for the alert narrative ("" when the rule did not fire)
   conditions: Condition[];
 }
 
@@ -65,7 +69,7 @@ const day = (iso: string) => {
   const date = new Date(iso);
   return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
 };
-const mm = (value: number) => `${value.toFixed(1)} mm`;
+export const mm = (value: number) => `${value.toFixed(1)} mm`;
 
 export function evaluateRisks(
   observations: ObservationSummary[],
@@ -116,9 +120,9 @@ export function evaluateRisks(
     return { text: `${describe(weather, met)} (${weather.source}).`, met, evidence: [] };
   };
 
-  const decide = (risk: RiskId, conditions: Condition[], level: RiskLevel): RiskDecision => {
+  const decide = (risk: RiskId, conditions: Condition[], [level, levelReason]: [RiskLevel, string]): RiskDecision => {
     const fired = conditions.every((c) => c.met);
-    return { risk, fired, level: fired ? level : "none", conditions };
+    return { risk, fired, level: fired ? level : "none", levelReason: fired ? levelReason : "", conditions };
   };
 
   const algae = latest("filamentousAlgae");
@@ -139,7 +143,9 @@ export function evaluateRisks(
               : `${mm(w.rain7d)} of rain in the last 7 days, more than ${T.bloomMaxRain7dMm} mm`,
         ),
       ],
-      algae?.value === "abundant" ? "high" : "medium",
+      algae?.value === "abundant"
+        ? ["high", "filamentous algae was reported as abundant"]
+        : ["medium", "filamentous algae was present but not abundant"],
     ),
     decide(
       "sewage-overflow",
@@ -153,7 +159,7 @@ export function evaluateRisks(
         ),
         presence("foam", "foam, colour or smell", T.sewageFoamWindowHours),
       ],
-      "high",
+      ["high", "heavy rain together with signs of sewage points to an overflow"],
     ),
     decide(
       "mosquito-breeding",
@@ -168,7 +174,9 @@ export function evaluateRisks(
               : `Almost no rain in the last 7 days: ${mm(w.rain7d)}`,
         ),
       ],
-      diptera?.value === "abundant" ? "high" : "medium",
+      diptera?.value === "abundant"
+        ? ["high", "mosquito larvae were reported as abundant"]
+        : ["medium", "mosquito larvae were present but not abundant"],
     ),
     decide(
       "low-oxygen",
@@ -183,7 +191,9 @@ export function evaluateRisks(
             }
           : { text: `No dissolved oxygen reading in the last ${T.windowDays} days.`, met: false, evidence: [] },
       ],
-      Number(oxygen?.value) < T.severeOxygenMgL ? "medium" : "low",
+      Number(oxygen?.value) < T.severeOxygenMgL
+        ? ["medium", `dissolved oxygen is below ${T.severeOxygenMgL} mg/L, a severe level for fish`]
+        : ["low", `dissolved oxygen is between ${T.severeOxygenMgL} and ${T.lowOxygenMgL} mg/L`],
     ),
   ];
 }

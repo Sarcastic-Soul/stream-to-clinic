@@ -1,10 +1,11 @@
 import cors from "@fastify/cors";
 import Fastify, { type FastifyError } from "fastify";
-import { evaluateSite, getAlert, listAlerts } from "./alerts.js";
+import { evaluateSite, getAlert, listAlerts, scheduleEvaluation } from "./alerts.js";
 import { config } from "./config.js";
 import { FhirError, fhir } from "./fhir.js";
 import { checkValue, toObservationSummary, toOahObservation } from "./mapping.js";
-import { indicatorList, isCitizenIndicator, PRESENCE_VALUES, type Presence } from "./oah.js";
+import { indicatorList, isCitizenIndicator, OAH_PROFILES, PRESENCE_VALUES, type Presence } from "./oah.js";
+import { createWithPhoto, loadPhoto, parsePhoto } from "./photos.js";
 import { highestLevel } from "./rules.js";
 import { seed } from "./seed.js";
 import { latestPerIndicator, loadClinics, loadSite, loadSites, siteObservations } from "./store.js";
@@ -13,6 +14,8 @@ const ID_PATTERN = "^[A-Za-z0-9\\-.]{1,64}$";
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: config.corsOrigins });
+// HAPI's Subscription notifications arrive as FHIR JSON.
+app.addContentTypeParser("application/fhir+json", { parseAs: "string" }, app.getDefaultJsonParser("error", "error"));
 
 // Errors follow docs/API.md: { error, details? }.
 app.setErrorHandler<FastifyError>((err, req, reply) => {
@@ -80,11 +83,13 @@ interface ReportBody {
   observedAt?: string;
   reporter: string;
   note?: string;
+  photo?: string;
 }
 
 app.post<{ Body: ReportBody }>(
   "/reports",
   {
+    bodyLimit: 2.5 * 1024 * 1024, // room for a 1.5 MB photo as base64
     schema: {
       body: {
         type: "object",
@@ -97,22 +102,26 @@ app.post<{ Body: ReportBody }>(
           reporter: { type: "string", minLength: 1, maxLength: 120 },
           value: { anyOf: [{ type: "number" }, { type: "string", enum: [...PRESENCE_VALUES] }] },
           note: { type: "string", maxLength: 1000 },
+          photo: { type: "string", maxLength: 2_200_000 },
         },
       },
     },
   },
   async (req, reply) => {
-    const { indicator, observedAt = new Date().toISOString(), ...body } = req.body;
+    const { indicator, observedAt = new Date().toISOString(), photo: photoDataUrl, ...body } = req.body;
     if (!isCitizenIndicator(indicator)) return reply.code(404).send({ error: `Unknown indicator ${indicator}` });
     const invalid = checkValue(indicator, body.value);
     if (invalid) return reply.code(400).send({ error: invalid });
     if (Date.parse(observedAt) > Date.now() + 5 * 60_000) {
       return reply.code(400).send({ error: "observedAt must not be in the future" });
     }
+    const photo = photoDataUrl === undefined ? undefined : parsePhoto(photoDataUrl);
+    if (typeof photo === "string") return reply.code(400).send({ error: photo });
     const site = await loadSite(body.siteId);
     if (!site) return reply.code(404).send({ error: `Unknown site ${body.siteId}` });
 
-    const created = await fhir.create(toOahObservation({ ...body, indicator, observedAt }));
+    const resource = toOahObservation({ ...body, indicator, observedAt });
+    const created = photo ? await createWithPhoto(resource, photo) : await fhir.create(resource);
     const observation = toObservationSummary(created);
 
     let alerts: Awaited<ReturnType<typeof evaluateSite>> = [];
@@ -125,6 +134,39 @@ app.post<{ Body: ReportBody }>(
     return reply.code(201).send({ observation, fhirUrl: `${config.publicFhirUrl}/Observation/${created.id}`, alerts });
   },
 );
+
+const PHOTO_CACHE = "public, max-age=31536000, immutable";
+app.get<{ Params: { id: string } }>("/photos/:id", { schema: ID_PARAMS }, async (req, reply) => {
+  const photo = await loadPhoto(req.params.id);
+  if (!photo) return reply.code(404).send({ error: `Unknown photo ${req.params.id}` });
+  return reply
+    .type(photo.contentType)
+    .header("Cache-Control", PHOTO_CACHE)
+    .header("X-Content-Type-Options", "nosniff")
+    .send(photo.data);
+});
+
+// FHIR rest-hook target for the citizen-observations Subscription (see seed.ts). HAPI calls it over
+// the internal Docker network; anything relayed by the public proxy is refused (Caddy also blocks
+// /hooks, and always adds X-Forwarded-For).
+const isProxied = (headers: Record<string, unknown>) => ["x-forwarded-for", "x-forwarded-host", "via"].some((h) => h in headers);
+// With a payload, HAPI delivers each matching Observation as PUT <endpoint>/Observation/<id>.
+app.put<{ Body: fhir4.Observation | undefined }>("/hooks/observation/Observation/:id", async (req, reply) => {
+  if (isProxied(req.headers)) return reply.code(404).send({ error: "Not found" });
+  const observation = req.body;
+  const siteId = observation?.subject?.reference?.match(/^Location\/([A-Za-z0-9\-.]{1,64})$/)?.[1];
+  // HAPI parses any response body as a FHIR resource, so answer 204 with none.
+  if (observation?.resourceType !== "Observation" || !siteId || !observation.meta?.profile?.includes(OAH_PROFILES.observationIndicators)) {
+    return reply.code(204).send();
+  }
+  const site = await loadSite(siteId);
+  if (site) {
+    req.log.info({ observation: observation.id, siteId }, "subscription notification: re-evaluating site");
+    // Answer at once; the evaluation runs in the background and never creates Observations, so no loop.
+    scheduleEvaluation(site, req.log);
+  }
+  return reply.code(204).send();
+});
 
 app.get("/clinics", async () => loadClinics());
 

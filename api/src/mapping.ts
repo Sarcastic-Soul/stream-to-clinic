@@ -10,6 +10,7 @@ import {
   type CitizenIndicator,
   type Presence,
 } from "./oah.js";
+import { photoUrl } from "./photos.js";
 
 export interface CitizenReport {
   siteId: string;
@@ -27,6 +28,7 @@ export interface ObservationSummary {
   unit?: string;
   observedAt: string;
   reporter: string;
+  photoUrl?: string;
 }
 
 const PRESENCE_DISPLAY: Record<Presence, string> = {
@@ -98,6 +100,7 @@ export function toObservationSummary(observation: fhir4.Observation): Observatio
     if (PRESENCE_VALUES.includes(code as Presence)) value = code as Presence;
   }
   if (value === undefined) return undefined;
+  const mediaId = observation.derivedFrom?.find((r) => r.reference?.startsWith("Media/"))?.reference?.slice(6);
 
   return {
     id: observation.id,
@@ -106,5 +109,6 @@ export function toObservationSummary(observation: fhir4.Observation): Observatio
     ...(unit ? { unit } : {}),
     observedAt: observation.effectiveDateTime,
     reporter: observation.performer?.[0]?.display ?? "Unknown",
+    ...(mediaId ? { photoUrl: photoUrl(mediaId) } : {}),
   };
 }

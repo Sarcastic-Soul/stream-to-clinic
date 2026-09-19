@@ -2,6 +2,7 @@
 // safe to rerun and rebuilds everything after a database loss. Sites are the European monitoring
 // locations from the OAH IG examples; clinics, cohorts, baselines and history are synthetic
 // and tagged HTEST.
+import { config } from "./config.js";
 import { fhir } from "./fhir.js";
 import { toOahObservation } from "./mapping.js";
 import {
@@ -261,6 +262,20 @@ export function history(now: Date): fhir4.Observation[] {
   return observations;
 }
 
+// Rest-hook Subscription: HAPI notifies the API of every citizen indicator Observation, including
+// ones written straight to FHIR by other systems, and the API re-evaluates that site's risks.
+// With a payload, HAPI delivers each match as PUT {endpoint}/Observation/{id}.
+export function subscription(): fhir4.Subscription {
+  return {
+    resourceType: "Subscription",
+    id: "citizen-observations",
+    status: "active",
+    reason: "Re-evaluate stream health risks when a citizen indicator Observation is created or updated",
+    criteria: `Observation?_profile=${OAH_PROFILES.observationIndicators}`,
+    channel: { type: "rest-hook", endpoint: config.hookUrl, payload: "application/fhir+json" },
+  };
+}
+
 export function seedBundle(now = new Date()): fhir4.Bundle {
   const resources: fhir4.Resource[] = [
     ...codeSystems(),
@@ -269,6 +284,7 @@ export function seedBundle(now = new Date()): fhir4.Bundle {
     ...cohorts(),
     ...baselines(now.getUTCFullYear() - 1),
     ...history(now),
+    subscription(),
   ];
   return {
     resourceType: "Bundle",

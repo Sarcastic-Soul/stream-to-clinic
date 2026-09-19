@@ -13,6 +13,11 @@ oneaquahealth.duckdns.org {
 		respond "FHIR writes go through the Stream-to-Clinic API" 405
 	}
 
+	# Subscription notifications come from HAPI over the internal Docker network only.
+	handle /hooks* {
+		respond 404
+	}
+
 	handle {
 		reverse_proxy stream-to-clinic-api-1:3000
 	}

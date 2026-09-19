@@ -84,7 +84,7 @@ interface AlertSummary {
 | GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |
 | GET | `/alerts/:id` | `AlertSummary` or 404 |
 | GET | `/photos/:id` | The photo bytes (`image/jpeg`, `image/png` or `image/webp`) or 404 |
-| POST | `/hooks/observation` | Internal: FHIR rest-hook target for the Observation Subscription; not for browsers |
+| PUT | `/hooks/observation/Observation/:id` | Internal: FHIR rest-hook target for the Observation Subscription (HAPI delivers each match as a PUT of the Observation); answers 204. Not reachable through the public proxy |
 
 ### `POST /reports` body
 
