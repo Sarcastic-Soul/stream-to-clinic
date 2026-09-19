@@ -7,9 +7,10 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 
 ## Current status
 
-- **Done:** Stages 0–6 and the Stage 7 features: installable PWA with offline report queue, report photos (`Media` + `Binary`), alert narrative, FHIR rest-hook Subscription, accessibility pass. Everything is live.
+- **Done:** Stages 0–7, and the Stage 8 documents (README, SUBMISSION.md, DEMO_SCRIPT.md). Installable PWA with offline report queue, report photos (`Media` + `Binary`), alert narrative, FHIR rest-hook Subscription, accessibility pass, code-review fixes. Everything is live.
 - **Validation:** CI checks resources from the real API code against the OAH IG: 0 errors.
-- **Next:** Stage 7 bug-fix review, then Stage 8: README screenshots, final check of [SUBMISSION.md](SUBMISSION.md), demo video ([DEMO_SCRIPT.md](DEMO_SCRIPT.md)), Devpost submission (the last two need the user).
+- **Next (user):** record the demo video from [DEMO_SCRIPT.md](DEMO_SCRIPT.md), add its link to [SUBMISSION.md](SUBMISSION.md), submit on Devpost before Sep 30, 9:00 PM PDT.
+- **Optional if time remains:** stretch items (FHIR `Bundle` export per site, SMART on FHIR launch), and the review's minor leftovers: duplicate evaluation on API reports (Subscription re-evaluates too; harmless), alert reason dates in UTC, 200-item cap on alert/communication lists.
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
 - **Demo note:** the algal-bloom rule needs a dry week. For the video, the API accepts an optional `WEATHER_OVERRIDE` env var (e.g. `{"rain24h":0,"rain7d":1.2}`); alert reasons then say "demo weather override". Production uses real Open-Meteo weather.
 
@@ -122,19 +123,19 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - [x] Validation badge and summary in the README
 - **Done when:** CI fails if a mapping produces a resource that does not conform to the OAH profile.
 
-### Stage 7: Polish and should-haves (Sep 26–27)
+### Stage 7: Polish and should-haves ✅ (Sep 20)
 - [x] PWA manifest, installability, offline report queue
 - [x] Accessibility pass (axe: 0 violations on all pages, light and dark)
 - [x] Should-haves in order: alert narrative, photos, FHIR Subscription
-- [ ] Realistic demo dataset and bug fixing
+- [x] Realistic demo dataset (refreshed daily) and bug fixing (code review: pH label, stale alerts, closed-alert status, clock skew, photo CORS)
 
 ### Stage 8: Submission (Sep 28–30)
-- [ ] README: architecture diagram, screenshots, one-command setup
-- [ ] Track alignment statement
-- [ ] Project description: problem, solution, target users, expected impact on ecosystem and human health
-- [ ] Demo video, 3–5 minutes (script in section 6)
+- [x] README: architecture diagram, screenshots, one-command setup
+- [x] Track alignment statement (in [SUBMISSION.md](SUBMISSION.md))
+- [x] Project description: problem, solution, target users, expected impact on ecosystem and human health (in [SUBMISSION.md](SUBMISSION.md))
+- [ ] Demo video, 3–5 minutes (user records; full script in [DEMO_SCRIPT.md](DEMO_SCRIPT.md))
 - [ ] Working prototype link and public FHIR endpoint in the submission
-- [ ] Submit on Devpost by Sep 30 evening IST
+- [ ] Submit on Devpost by Sep 30 evening IST (user)
 
 ## 6. Demo flow (3–5 minute video)
 
