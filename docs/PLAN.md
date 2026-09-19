@@ -7,9 +7,10 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 
 ## Current status
 
-- **Done:** Stages 0–5. Seed data, all API endpoints in [API.md](API.md), risk engine with FHIR alerts, and the map, report and clinician pages are live. The Sep 24 checkpoint is met early.
-- **In progress:** Stage 6 (OAH IG validation in CI), branch awaiting merge.
-- **Next:** Stage 7 (PWA and offline queue, accessibility, alert narrative, photos, FHIR Subscription).
+- **Done:** Stages 0–6. Seed data, all API endpoints in [API.md](API.md), risk engine with FHIR alerts, and the map, report and clinician pages are live. The Sep 24 checkpoint is met early.
+  OAH profile validation runs in CI (51 resources from the real API code, 0 errors, 79 best-practice/terminology warnings).
+- **In progress:** Stage 7. Backend: alert narrative, photos (`Media` + `Binary`), FHIR rest-hook Subscription. Frontend: PWA, offline queue, photo capture, narrative view, accessibility pass.
+- **Next:** Stage 8 (README, submission text, demo video script).
 - **Demo note:** the algal-bloom rule needs a dry week. For the video, the API accepts an optional `WEATHER_OVERRIDE` env var (e.g. `{"rain24h":0,"rain7d":1.2}`); alert reasons then say "demo weather override". Production uses real Open-Meteo weather.
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
 
@@ -116,10 +117,10 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - [x] Alert detail: risk, affected site, evidence, what to watch for, in plain language
 - **Checkpoint (Sep 24):** all must-haves except validation are working. Should-haves start only after this.
 
-### Stage 6: Standards validation (Sep 25)
-- [ ] Build the OAH IG from source with SUSHI (pinned commit)
-- [ ] CI job: run `validator_cli` on sample resources produced by the API mapping
-- [ ] Validation badge and summary in the README
+### Stage 6: Standards validation ✅ (Sep 19)
+- [x] Build the OAH IG from source with SUSHI (pinned commit)
+- [x] CI job: run `validator_cli` on sample resources produced by the API mapping
+- [x] Validation badge and summary in the README
 - **Done when:** CI fails if a mapping produces a resource that does not conform to the OAH profile.
 
 ### Stage 7: Polish and should-haves (Sep 26–27)
