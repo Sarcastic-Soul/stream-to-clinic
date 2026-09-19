@@ -5,8 +5,11 @@ Checks that the resources the API produces conform to the OneAquaHealth (OAH) IG
 ## What it does
 
 1. `build-ig.sh` downloads the OAH IG source ([hl7-eu/oah](https://github.com/hl7-eu/oah)) at a pinned commit and builds it with SUSHI. The IG is a draft and is not published as a package, so it is built from source.
-2. `generate-samples.ts` calls the API's real mapping code (`api/src/mapping.ts`) to create one sample Observation per citizen indicator (one per presence value for presence indicators) in `samples/generated/`. New indicators in `api/src/oah.ts` are picked up automatically.
-3. `validate.sh` runs `validator_cli` against FHIR 4.0.1 with the built IG on `samples/baseline/` (hand-written `LocationOah`, `GroupOah`, `ObservationHealthMeasureOah` and `Organization` samples) and `samples/generated/`. It prints each file's errors and warnings and exits non-zero if there is any error.
+2. `generate-samples.ts` runs the API's real code and writes the resources to `samples/generated/`:
+   - `api/src/mapping.ts`: a citizen report Observation (`ObservationIndicatorsOah`) for every indicator, one per presence value for presence indicators. New indicators in `api/src/oah.ts` are picked up automatically.
+   - `api/src/seed.ts`: every resource in the seed transaction (`LocationOah` sites and parent Locations, `Organization`, `HealthcareService`, `GroupOah`, `ObservationHealthMeasureOah`, `CodeSystem`), with the synthetic citizen history cut down to one Observation per indicator.
+   - `api/src/alerts.ts`: the `DetectedIssue` and `Communication` for a raised algal-bloom alert (core R4 only; no OAH profile applies).
+3. `validate.sh` runs `validator_cli` against FHIR 4.0.1 with the built IG on `samples/generated/` (and `samples/baseline/`, if present). The API's CodeSystems are loaded as definitions too, so presence and risk codes are checked. It prints each file's errors and warnings and exits non-zero if there is any error.
 
 ## Run locally
 
@@ -39,12 +42,15 @@ To move to a newer IG commit, change `OAH_COMMIT` in `build-ig.sh`. This also in
 
 ## Adding samples
 
-- Another API mapping: add a builder to `samples()` in `generate-samples.ts`.
-- A fixed resource: drop a JSON file into `samples/baseline/`. Declare the OAH profile in `meta.profile`; the validator only checks profiles that a resource declares.
+- Another API builder: call it from `generate-samples.ts` and add its resources to the list written out.
+- A fixed, hand-written resource: create `samples/baseline/` and drop a JSON file there. Only do this when the API cannot produce the resource.
+
+The validator only checks the profiles a resource declares in `meta.profile`, so API code must set it.
 
 ## Known limitations
 
 - Offline terminology (default): UCUM units and SNOMED/LOINC codes are not checked and show up as warnings. Codes from the OAH code system are checked, because that code system is part of the IG.
 - References are not resolved. The validator checks that `Observation.subject` points to a `Location`, but not that the Location exists or conforms to `LocationOah`.
 - Every sample gets a `dom-6` warning (no narrative `text`). This is a best-practice warning, not an error.
+- The seeded health-measure baselines warn that an Observation should have a performer. `ObservationHealthMeasureOah` does not require one.
 - `hl7.fhir.r4.core` is seeded from hl7.org because SUSHI's registry download of it often fails.

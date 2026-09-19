@@ -59,7 +59,7 @@ export function toDetectedIssue(site: Site, decision: RiskDecision, start: strin
   };
 }
 
-function toCommunication(site: Site, decision: RiskDecision, issueRef: string, clinic: { id: string; name: string }) {
+export function toCommunication(site: Site, decision: RiskDecision, issueRef: string, clinic: { id: string; name: string }) {
   const { title, watchFor } = RISKS[decision.risk];
   const reasons = decision.conditions.filter((c) => c.met).map((c) => c.text);
   return {

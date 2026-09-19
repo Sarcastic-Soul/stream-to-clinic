@@ -26,11 +26,25 @@ if [[ ! -f "$jar" ]]; then
   mv "$jar.part" "$jar"
 fi
 
-inputs=("$here/samples/baseline")
-[[ -d "$here/samples/generated" ]] && inputs+=("$here/samples/generated")
+inputs=()
+for dir in "$here/samples/baseline" "$here/samples/generated"; do
+  [[ -d "$dir" ]] && inputs+=("$dir")
+done
+if [[ ${#inputs[@]} -eq 0 ]]; then
+  echo "No samples; run npm run generate first" >&2
+  exit 2
+fi
+
+# The API's own CodeSystems (presence, risk) are loaded as definitions too, so their codes are checked.
+igs=(-ig "$ig")
+for dir in "${inputs[@]}"; do
+  for cs in "$dir"/CodeSystem-*.json; do
+    [[ -f "$cs" ]] && igs+=(-ig "$cs")
+  done
+done
 
 java "-Xmx$JAVA_XMX" -jar "$jar" "${inputs[@]}" \
-  -version 4.0.1 -ig "$ig" -tx "$TX" > "$log" 2>&1
+  -version 4.0.1 "${igs[@]}" -tx "$TX" > "$log" 2>&1
 status=$?
 
 # Per file: its summary line, then its errors and warnings (notes stay in the full log).
