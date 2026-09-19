@@ -18,6 +18,8 @@ export interface AlertSummary {
   siteId: string;
   siteName: string;
   createdAt: string;
+  status: "active" | "closed";
+  closedAt?: string;
   reasons: string[];
   narrative: string[];
   watchFor: string;
@@ -121,6 +123,8 @@ export function toAlertSummary(issue: fhir4.DetectedIssue, comms: Communications
     siteId: site.reference.replace("Location/", ""),
     siteName: site.display ?? "",
     createdAt: issue.identifiedPeriod?.start ?? issue.meta?.lastUpdated ?? "",
+    status: isActive(issue) ? "active" : "closed",
+    ...(issue.identifiedPeriod?.end ? { closedAt: issue.identifiedPeriod.end } : {}),
     reasons,
     // Issues raised before narratives were recorded fall back to their reasons.
     narrative: parseNarrative(issue.detail).length ? parseNarrative(issue.detail) : reasons,

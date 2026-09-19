@@ -57,6 +57,9 @@ export interface AlertSummary {
   siteId: string;
   siteName: string;
   createdAt: string;
+  // Closed once a later evaluation no longer meets the rule; lists only return active alerts.
+  status: "active" | "closed";
+  closedAt?: string;
   reasons: string[];
   watchFor: string;
   // Optional here so alerts raised before the narrative existed still render.

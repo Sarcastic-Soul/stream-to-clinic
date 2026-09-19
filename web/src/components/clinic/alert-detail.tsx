@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, type ReactNode } from "react";
-import { ArrowLeftIcon, BotIcon, ExternalLinkIcon, LeafIcon, StethoscopeIcon } from "lucide-react";
+import { ArrowLeftIcon, BotIcon, CircleCheckIcon, ExternalLinkIcon, LeafIcon, StethoscopeIcon } from "lucide-react";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { useApi } from "@/hooks/use-api";
 import { api, fhirObservationUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 function FhirLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -23,6 +24,7 @@ const resourceLabel = (url: string) => url.split("/").slice(-2).join("/");
 
 export function AlertDetail({ id }: { id: string }) {
   const { data: alert, error, loading } = useApi(useCallback(() => api.getAlert(id), [id]));
+  const closed = alert?.status === "closed";
 
   return (
     <div className="space-y-6">
@@ -39,7 +41,9 @@ export function AlertDetail({ id }: { id: string }) {
           <header className="space-y-2">
             <h1 className="text-2xl font-semibold">{alert.title}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <RiskBadge level={alert.level} />
+              <span className={cn(closed && "opacity-60 grayscale")}>
+                <RiskBadge level={alert.level} />
+              </span>
               <Link href={`/?site=${encodeURIComponent(alert.siteId)}`} className="font-medium text-foreground underline underline-offset-2">
                 {alert.siteName}
               </Link>
@@ -47,11 +51,29 @@ export function AlertDetail({ id }: { id: string }) {
             </div>
           </header>
 
+          {closed && (
+            <p className="flex items-start gap-2 rounded-xl border border-green-300 bg-green-50 p-4 text-green-950 dark:border-green-800 dark:bg-green-950 dark:text-green-100">
+              <CircleCheckIcon className="mt-0.5 size-5 shrink-0" aria-hidden />
+              <span>
+                <span className="font-semibold">
+                  Closed{alert.closedAt && <> on <time dateTime={alert.closedAt}>{formatDateTime(alert.closedAt)}</time></>}
+                </span>
+                : conditions no longer met. Kept here for the record.
+              </span>
+            </p>
+          )}
+
           {alert.watchFor ? (
-            <section aria-labelledby="watch-heading" className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
+            <section
+              aria-labelledby="watch-heading"
+              className={cn(
+                "rounded-xl border p-4",
+                closed ? "text-muted-foreground" : "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950",
+              )}
+            >
               <h2 id="watch-heading" className="mb-1 flex items-center gap-2 font-semibold">
                 <StethoscopeIcon className="size-5" aria-hidden />
-                What to watch for
+                {closed ? "What to watch for (while it was active)" : "What to watch for"}
               </h2>
               <p>{alert.watchFor}</p>
             </section>

@@ -63,6 +63,8 @@ interface AlertSummary {
   siteId: string;
   siteName: string;
   createdAt: string;
+  status: "active" | "closed";  // closed once a later evaluation no longer meets the rule
+  closedAt?: string;       // set when status is "closed"
   reasons: string[];       // plain-language, one per satisfied condition
   watchFor: string;        // what clinicians should watch for ("" for environmental-only risks)
   narrative: string[];     // step-by-step account of how the engine reached this alert, in plain language
@@ -82,7 +84,7 @@ interface AlertSummary {
 | POST | `/reports` | `201 { observation: ObservationSummary, fhirUrl: string, alerts: AlertSummary[] }` — `alerts` lists alerts raised or updated by this report |
 | GET | `/clinics` | `ClinicSummary[]` |
 | GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |
-| GET | `/alerts/:id` | `AlertSummary` or 404 |
+| GET | `/alerts/:id` | `AlertSummary` (active or closed) or 404 |
 | GET | `/photos/:id` | The photo bytes (`image/jpeg`, `image/png` or `image/webp`) or 404 |
 | PUT | `/hooks/observation/Observation/:id` | Internal: FHIR rest-hook target for the Observation Subscription (HAPI delivers each match as a PUT of the Observation); answers 204. Not reachable through the public proxy |
 

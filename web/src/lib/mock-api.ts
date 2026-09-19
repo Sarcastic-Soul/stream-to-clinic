@@ -220,8 +220,9 @@ function evaluate(site: Site): Finding[] {
 // Returns alerts raised or updated for the site.
 function reevaluate(site: Site, at: string): AlertSummary[] {
   const changed: AlertSummary[] = [];
-  for (const finding of evaluate(site)) {
-    const existing = alerts.find((a) => a.siteId === site.id && a.risk === finding.risk);
+  const findings = evaluate(site);
+  for (const finding of findings) {
+    const existing = alerts.find((a) => a.siteId === site.id && a.risk === finding.risk && a.status === "active");
     const id = existing?.id ?? newId("alert");
     const clinics = finding.watchFor === "" ? [] : CLINICS.filter((c) => c.siteIds.includes(site.id));
     const alert: AlertSummary = {
@@ -231,6 +232,7 @@ function reevaluate(site: Site, at: string): AlertSummary[] {
       siteId: site.id,
       siteName: site.name,
       createdAt: existing?.createdAt ?? at,
+      status: "active",
       fhir: {
         detectedIssue: `${FHIR_URL}/DetectedIssue/${id}`,
         communications: clinics.map((c) => `${FHIR_URL}/Communication/${id}-${c.id}`),
@@ -240,6 +242,12 @@ function reevaluate(site: Site, at: string): AlertSummary[] {
     alerts = [alert, ...alerts.filter((a) => a.id !== id)];
     changed.push(alert);
   }
+  // Active alerts whose rule no longer fires are closed, as the API does.
+  alerts = alerts.map((a) =>
+    a.siteId === site.id && a.status === "active" && !findings.some((f) => f.risk === a.risk)
+      ? { ...a, status: "closed", closedAt: at }
+      : a,
+  );
   return changed;
 }
 
@@ -252,10 +260,12 @@ for (const site of SITES) {
 }
 alerts.sort(newestFirst);
 
+const activeAlerts = () => alerts.filter((a) => a.status === "active");
+
 function summary(site: Site): SiteSummary {
   return {
     ...site,
-    riskLevel: maxLevel(alerts.filter((a) => a.siteId === site.id).map((a) => a.level)),
+    riskLevel: maxLevel(activeAlerts().filter((a) => a.siteId === site.id).map((a) => a.level)),
     latest: [...latestPerIndicator(site.id).values()],
   };
 }
@@ -287,7 +297,7 @@ export const mockApi: Api = {
       return {
         ...summary(site),
         observations: (observationsBySite.get(id) ?? []).slice(0, 50),
-        alerts: alerts.filter((a) => a.siteId === id),
+        alerts: activeAlerts().filter((a) => a.siteId === id),
         clinics: CLINICS.filter((c) => c.siteIds.includes(id)),
       };
     }),
@@ -336,7 +346,7 @@ export const mockApi: Api = {
       const clinic = filter.clinicId ? CLINICS.find((c) => c.id === filter.clinicId) : undefined;
       if (filter.clinicId && !clinic) throw new ApiError(`Unknown clinic: ${filter.clinicId}`, 404);
       // Clinics only receive alerts that were communicated to them (not environmental-only ones).
-      return alerts
+      return activeAlerts()
         .filter((a) => (!clinic || (clinic.siteIds.includes(a.siteId) && a.watchFor !== "")) && (!filter.siteId || a.siteId === filter.siteId))
         .sort(newestFirst);
     }),
