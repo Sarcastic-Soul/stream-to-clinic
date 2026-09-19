@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { CircleAlertIcon, LoaderCircleIcon, LocateFixedIcon } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { CircleAlertIcon, CircleCheckIcon, CloudOffIcon, LoaderCircleIcon, LocateFixedIcon } from "lucide-react";
 import { ChoiceGroup } from "@/components/choice-group";
 import { LoadError, LoadingRows } from "@/components/status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api";
 import { distanceKm } from "@/lib/format";
+import { QUEUE_EVENT, enqueueReport, isNetworkError, listQueued, type QueuedReport } from "@/lib/report-queue";
 import { readStored, writeStored } from "@/lib/storage";
-import type { Presence, ReportResult, SiteSummary } from "@/lib/types";
+import type { Presence, ReportInput, ReportResult, SiteSummary } from "@/lib/types";
+import { PhotoField } from "./photo-field";
 import { ReportSuccess } from "./report-success";
 
 const REPORTER_KEY = "stream-to-clinic.reporter";
@@ -40,10 +42,21 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
   const [indicatorId, setIndicatorId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState("");
   const [presence, setPresence] = useState<Presence | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
   const [locate, setLocate] = useState<Locate>({ state: "idle" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ report: ReportResult; site: SiteSummary } | null>(null);
+  const [queued, setQueued] = useState<QueuedReport | null>(null);
+  const [queuedSent, setQueuedSent] = useState(false);
+
+  // A queued report leaves the queue once the banner has sent it.
+  useEffect(() => {
+    if (!queued) return;
+    const check = () => listQueued().then((items) => setQueuedSent(!items.some((item) => item.id === queued.id)));
+    window.addEventListener(QUEUE_EVENT, check);
+    return () => window.removeEventListener(QUEUE_EVENT, check);
+  }, [queued]);
 
   const site = sites.data?.find((s) => s.id === siteId);
   const indicator = indicators.data?.find((i) => i.id === indicatorId);
@@ -101,20 +114,32 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
     }
     if (!reporter) return setError("Enter your name so others know who reported this.");
 
+    const input: ReportInput = {
+      siteId: site.id,
+      indicator: indicator.id,
+      value,
+      observedAt: new Date().toISOString(),
+      reporter,
+      ...(note && { note }),
+      ...(photo && { photo }),
+    };
+    // Without a connection the report waits on the device and is sent later (see ReportQueueBanner).
+    const queue = async () => {
+      try {
+        setQueued(await enqueueReport({ input, siteName: site.name, indicatorDisplay: indicator.display }));
+      } catch {
+        setError("You appear to be offline, and this browser cannot store the report for later. Try again when you are back online.");
+      }
+    };
+
     setSubmitting(true);
+    writeStored(REPORTER_KEY, reporter);
     try {
-      const report = await api.createReport({
-        siteId: site.id,
-        indicator: indicator.id,
-        value,
-        observedAt: new Date().toISOString(),
-        reporter,
-        ...(note && { note }),
-      });
-      writeStored(REPORTER_KEY, reporter);
-      setResult({ report, site });
+      if (!navigator.onLine) await queue();
+      else setResult({ report: await api.createReport(input), site });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      if (isNetworkError(err)) await queue();
+      else setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -122,8 +147,36 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
 
   function reportAnother() {
     setResult(null);
+    setQueued(null);
+    setQueuedSent(false);
     setQuantity("");
     setPresence(null);
+    setPhoto(null);
+  }
+
+  if (queued) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h2 ref={(el) => el?.focus()} tabIndex={-1} className="flex items-center gap-2 text-xl font-semibold outline-none">
+            {queuedSent ? (
+              <CircleCheckIcon className="size-6 text-green-600 dark:text-green-400" aria-hidden />
+            ) : (
+              <CloudOffIcon className="size-6 text-amber-600 dark:text-amber-400" aria-hidden />
+            )}
+            {queuedSent ? "Queued report sent" : "Queued, will send when online"}
+          </h2>
+          <p className="text-muted-foreground">
+            {queuedSent
+              ? `Your ${queued.indicatorDisplay.toLowerCase()} report for ${queued.siteName} has reached the server. See the banner above for its FHIR record.`
+              : `Your ${queued.indicatorDisplay.toLowerCase()} report for ${queued.siteName} is saved on this device. It will be sent automatically when you are back online, as long as this app is open.`}
+          </p>
+        </div>
+        <Button size="lg" className="h-11 w-full" onClick={reportAnother}>
+          Report another
+        </Button>
+      </div>
+    );
   }
 
   if (result) {
@@ -245,6 +298,8 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
           Shown with your report and remembered on this device.
         </p>
       </div>
+
+      <PhotoField value={photo} onChange={setPhoto} />
 
       <div className="space-y-2">
         <Label htmlFor="note">

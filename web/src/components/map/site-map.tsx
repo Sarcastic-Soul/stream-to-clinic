@@ -25,7 +25,9 @@ export default function SiteMap({ sites, selectedId, onSelect }: Props) {
   const selected = sites.find((s) => s.id === selectedId);
 
   useEffect(() => {
-    if (selected) mapRef.current?.flyTo({ center: [selected.lon, selected.lat], zoom: 12, duration: 1200 });
+    if (!selected) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    mapRef.current?.flyTo({ center: [selected.lon, selected.lat], zoom: 12, duration: reduceMotion ? 0 : 1200 });
   }, [selected]);
 
   const lons = sites.map((s) => s.lon);

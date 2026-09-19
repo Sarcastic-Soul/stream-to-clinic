@@ -22,6 +22,7 @@ export interface ObservationSummary {
   unit?: string;
   observedAt: string;
   reporter: string;
+  photoUrl?: string;
 }
 
 export interface SiteSummary {
@@ -58,6 +59,8 @@ export interface AlertSummary {
   createdAt: string;
   reasons: string[];
   watchFor: string;
+  // Optional here so alerts raised before the narrative existed still render.
+  narrative?: string[];
   evidence: string[];
   fhir: { detectedIssue: string; communications: string[] };
 }
@@ -74,6 +77,7 @@ export interface ReportInput {
   observedAt?: string;
   reporter: string;
   note?: string;
+  photo?: string; // data URL, downscaled on the device first
 }
 
 export interface ReportResult {

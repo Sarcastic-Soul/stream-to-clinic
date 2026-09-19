@@ -39,7 +39,8 @@ HAPI ── rest-hook Subscription (internal network) ──► API /hooks/obser
 | UI components | shadcn/ui (`base-nova`, Base UI primitives) + lucide icons | CLI 4.21 | Copied into `web/src/components/ui`; `cn` package for class merging |
 | Maps | MapLibre GL + `react-map-gl/maplibre` + OpenFreeMap `liberty` tiles | 6.10 / 8.1 | No API key; OSM attribution shown. MapLibre 6 finds its worker via `import.meta.url`, which bundling breaks, so `scripts/copy-maplibre-worker.mjs` copies it to `public/maplibre/<version>/` before `dev`/`build` |
 | Charts | Recharts | 3.10 | Site trend charts |
-| PWA (planned) | Serwist (`@serwist/next`) | 9.x | Recommended by the Next.js PWA guide; `next-pwa` is abandoned |
+| PWA | Serwist (`@serwist/turbopack` + `serwist`) | 9.5 | Linked from the Next.js PWA guide (Turbopack variant; `next-pwa` is abandoned). `app/sw.ts` is bundled with esbuild and served at `/serwist/sw.js`; precaches the app shell and `/report`, caches API reads network-first, and serves `/~offline` for unvisited pages. Manifest from `app/manifest.ts`, icons from `scripts/make-icons.mjs` |
+| Offline report queue | `idb-keyval` | 6.3 | Reports made offline wait in IndexedDB and are sent on the `online` event or the next app load; no Background Sync dependency |
 | API framework | Fastify | 5.12 | TypeScript, ES modules |
 | FHIR types | `@types/fhir` | 0.0.44 | `fhir4.*` namespace (R4) |
 | Language | TypeScript | web 5.x, API 6.0 | TS 7 (native rewrite) skipped until Next.js and ESLint support it |

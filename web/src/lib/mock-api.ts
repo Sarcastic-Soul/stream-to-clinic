@@ -129,6 +129,20 @@ function latestPerIndicator(siteId: string): Map<string, ObservationSummary> {
 
 type Finding = Pick<AlertSummary, "risk" | "title" | "level" | "reasons" | "watchFor" | "evidence">;
 
+// Step-by-step account in the style of the API's risk engine narrative.
+function narrate(site: Site, finding: Finding, clinics: number): string[] {
+  const weather = WEATHER[site.id];
+  return [
+    `Read the latest citizen reports for ${site.name}.`,
+    `Checked rainfall for the site: ${weather.rain24h} mm in the last 24 hours and ${weather.rain7d} mm over the last 7 days (demo weather).`,
+    ...finding.reasons.map((reason) => `Condition met: ${reason}`),
+    `All ${finding.reasons.length} conditions of the ${finding.title.toLowerCase()} rule were met, so the engine raised a ${finding.level} alert.`,
+    finding.watchFor
+      ? `Sent a FHIR Communication to ${clinics === 1 ? "the clinic" : `${clinics} clinics`} serving this site.`
+      : "This is an environmental risk only, so no clinic was notified.",
+  ];
+}
+
 // Same rules as docs/PLAN.md section 7, evaluated on the latest reading per indicator.
 function evaluate(site: Site): Finding[] {
   const latest = latestPerIndicator(site.id);
@@ -208,18 +222,17 @@ function reevaluate(site: Site, at: string): AlertSummary[] {
   for (const finding of evaluate(site)) {
     const existing = alerts.find((a) => a.siteId === site.id && a.risk === finding.risk);
     const id = existing?.id ?? newId("alert");
+    const clinics = finding.watchFor === "" ? [] : CLINICS.filter((c) => c.siteIds.includes(site.id));
     const alert: AlertSummary = {
       ...finding,
+      narrative: narrate(site, finding, clinics.length),
       id,
       siteId: site.id,
       siteName: site.name,
       createdAt: existing?.createdAt ?? at,
       fhir: {
         detectedIssue: `${FHIR_URL}/DetectedIssue/${id}`,
-        communications:
-          finding.watchFor === ""
-            ? []
-            : CLINICS.filter((c) => c.siteIds.includes(site.id)).map((c) => `${FHIR_URL}/Communication/${id}-${c.id}`),
+        communications: clinics.map((c) => `${FHIR_URL}/Communication/${id}-${c.id}`),
       },
     };
     if (existing && JSON.stringify(existing) === JSON.stringify(alert)) continue;
@@ -279,6 +292,8 @@ export const mockApi: Api = {
     }),
   createReport: (input) =>
     run(() => {
+      // Lets the offline queue be tested in mock mode.
+      if (!navigator.onLine) throw new ApiError("Could not reach the server. Check your connection and try again.", 0);
       const site = findSite(input.siteId);
       const indicator = INDICATORS.find((i) => i.id === input.indicator);
       if (!indicator) throw new ApiError(`Unknown indicator: ${input.indicator}`, 404);
@@ -290,6 +305,12 @@ export const mockApi: Api = {
           ? typeof input.value === "number" && input.value >= (indicator.min ?? -Infinity) && input.value <= (indicator.max ?? Infinity)
           : input.value === "absent" || input.value === "present" || input.value === "abundant";
       if (!valid) throw new ApiError(`Invalid value for ${indicator.display}.`, 400);
+      if (input.photo !== undefined) {
+        if (!/^data:image\/(jpeg|png|webp);base64,/.test(input.photo)) throw new ApiError("Photo must be a JPEG, PNG or WebP image.", 400);
+        if (((input.photo.length - input.photo.indexOf(",") - 1) * 3) / 4 > 1.5 * 1024 * 1024) {
+          throw new ApiError("Photo must be at most 1.5 MB.", 400);
+        }
+      }
 
       const observation: ObservationSummary = {
         id: newId("obs"),
@@ -298,6 +319,8 @@ export const mockApi: Api = {
         unit: indicator.unit,
         observedAt: input.observedAt ?? new Date().toISOString(),
         reporter,
+        // The mock keeps the data URL itself; the API serves photos from /photos/:id.
+        ...(input.photo && { photoUrl: input.photo }),
       };
       observationsBySite.get(site.id)!.unshift(observation);
       return {

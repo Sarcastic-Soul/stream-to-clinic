@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, type ReactNode } from "react";
-import { ArrowLeftIcon, ExternalLinkIcon, LeafIcon, StethoscopeIcon } from "lucide-react";
+import { ArrowLeftIcon, BotIcon, ExternalLinkIcon, LeafIcon, StethoscopeIcon } from "lucide-react";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { useApi } from "@/hooks/use-api";
 import { api, fhirObservationUrl } from "@/lib/api";
@@ -75,6 +75,33 @@ export function AlertDetail({ id }: { id: string }) {
               ))}
             </ul>
           </section>
+
+          {alert.narrative && alert.narrative.length > 0 && (
+            <section aria-labelledby="narrative-heading" className="space-y-3 rounded-xl border bg-muted/40 p-4">
+              <div className="space-y-1">
+                <h2 id="narrative-heading" className="flex items-center gap-2 font-semibold">
+                  <BotIcon className="size-5" aria-hidden />
+                  How this alert was decided
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  The risk engine&apos;s own account of each step, from the citizen reports and weather to the alert.
+                </p>
+              </div>
+              <ol className="space-y-3">
+                {alert.narrative.map((step, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span
+                      className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                      aria-hidden
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="pt-0.5">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
 
           <section aria-labelledby="evidence-heading" className="space-y-2">
             <h2 id="evidence-heading" className="font-semibold">

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { CircleCheckIcon, ExternalLinkIcon } from "lucide-react";
 import { AlertCard } from "@/components/alert-card";
@@ -43,6 +44,21 @@ export function ReportSuccess({ report, site, indicator, onReportAnother }: Prop
         <dd>
           <time dateTime={observation.observedAt}>{formatDateTime(observation.observedAt)}</time>
         </dd>
+        {observation.photoUrl && (
+          <>
+            <dt className="text-muted-foreground">Photo</dt>
+            <dd>
+              <Image
+                src={observation.photoUrl}
+                alt={`Photo attached to this ${indicator?.display.toLowerCase() ?? "observation"} report`}
+                width={160}
+                height={120}
+                unoptimized
+                className="h-30 w-40 rounded-lg border object-cover"
+              />
+            </dd>
+          </>
+        )}
         <dt className="text-muted-foreground">FHIR</dt>
         <dd>
           <a href={fhirUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium underline underline-offset-2">

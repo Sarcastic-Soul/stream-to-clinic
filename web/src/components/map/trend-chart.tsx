@@ -28,7 +28,7 @@ export function TrendChart({ indicator, observations }: Props) {
       <p className="sr-only">{summary}</p>
       <div className="h-32 w-full text-muted-foreground" aria-hidden>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
+          <LineChart accessibilityLayer={false} data={data} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.2} vertical={false} />
             <XAxis
               dataKey="t"

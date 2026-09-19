@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback } from "react";
 import { ArrowLeftIcon, MegaphoneIcon } from "lucide-react";
@@ -21,6 +22,7 @@ interface Props {
 export function SitePanel({ siteId, indicators, onBack }: Props) {
   const { data: site, error, loading } = useApi(useCallback(() => api.getSite(siteId), [siteId]));
   const indicatorById = new Map(indicators.map((i) => [i.id, i]));
+  const photos = site?.observations.filter((o) => o.photoUrl).slice(0, 6) ?? [];
 
   return (
     <div className="space-y-5 p-4">
@@ -74,6 +76,18 @@ export function SitePanel({ siteId, indicators, onBack }: Props) {
                     <dd className="text-xs text-muted-foreground">
                       <time dateTime={o.observedAt}>{formatDateTime(o.observedAt)}</time>
                     </dd>
+                    {o.photoUrl && (
+                      <dd className="mt-1.5">
+                        <Image
+                          src={o.photoUrl}
+                          alt={`Photo from ${o.reporter} with this ${indicatorById.get(o.indicator)?.display.toLowerCase() ?? "reading"}`}
+                          width={96}
+                          height={72}
+                          unoptimized
+                          className="h-18 w-24 rounded-md border object-cover"
+                        />
+                      </dd>
+                    )}
                   </div>
                 ))}
               </dl>
@@ -81,6 +95,39 @@ export function SitePanel({ siteId, indicators, onBack }: Props) {
               <p className="text-sm text-muted-foreground">No readings yet. Be the first to report.</p>
             )}
           </section>
+
+          {photos.length > 0 && (
+            <section aria-labelledby="photos-heading" className="space-y-2">
+              <h2 id="photos-heading" className="font-medium">
+                Recent photos
+              </h2>
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {photos.map((o) => {
+                  const what = indicatorById.get(o.indicator)?.display ?? o.indicator;
+                  return (
+                    <li key={o.id}>
+                      <figure className="space-y-1">
+                        <a href={o.photoUrl} target="_blank" rel="noreferrer" className="block rounded-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+                          <Image
+                            src={o.photoUrl!}
+                            alt={`${what} photo from ${o.reporter}`}
+                            width={160}
+                            height={120}
+                            unoptimized
+                            className="aspect-4/3 w-full rounded-md border object-cover"
+                          />
+                          <span className="sr-only">(full size, opens in a new tab)</span>
+                        </a>
+                        <figcaption className="text-xs text-muted-foreground">
+                          {what} · {o.reporter} · <time dateTime={o.observedAt}>{formatDateTime(o.observedAt)}</time>
+                        </figcaption>
+                      </figure>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
 
           <section aria-labelledby="trends-heading" className="space-y-4">
             <h2 id="trends-heading" className="font-medium">
