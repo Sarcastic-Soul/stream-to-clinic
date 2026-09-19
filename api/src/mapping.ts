@@ -52,6 +52,17 @@ export function checkValue(indicator: CitizenIndicator, value: unknown): string 
   return undefined;
 }
 
+const MAX_CLOCK_SKEW_MS = 24 * 3_600_000;
+
+// Resolves a report's observation time: defaults to now, and clamps a time up to 24 h ahead to now,
+// since a phone with a fast clock must not lose a queued report. Returns undefined beyond that.
+export function resolveObservedAt(observedAt: string | undefined, now = new Date()): string | undefined {
+  if (observedAt === undefined) return now.toISOString();
+  const ahead = Date.parse(observedAt) - now.getTime();
+  if (ahead > MAX_CLOCK_SKEW_MS) return undefined;
+  return ahead > 0 ? now.toISOString() : observedAt;
+}
+
 // Maps one citizen field report onto the OAH ObservationIndicatorsOah profile.
 export function toOahObservation(report: CitizenReport): fhir4.Observation {
   const indicator = CITIZEN_INDICATORS[report.indicator];

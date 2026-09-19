@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkValue, toObservationSummary, toOahObservation } from "../src/mapping.js";
+import { checkValue, resolveObservedAt, toObservationSummary, toOahObservation } from "../src/mapping.js";
 import { OAH_CODE_SYSTEM, OAH_PROFILES, PRESENCE_SYSTEM, indicatorList } from "../src/oah.js";
 
 const base = { siteId: "Loc-Almyros", observedAt: "2026-09-19T08:30:00Z", reporter: "Maria" };
@@ -53,4 +53,13 @@ test("indicator list exposes kind and units", () => {
     id: "dissolvedO2", display: "Dissolved O2", kind: "quantity", unit: "mg/L", unitLabel: "mg/L", min: 0, max: 20,
   });
   assert.deepEqual(list.find((i) => i.id === "foam"), { id: "foam", display: "Foam/colour/smell", kind: "presence" });
+});
+
+test("observedAt defaults to now, clamps a fast clock up to 24 h, and rejects beyond", () => {
+  const now = new Date("2026-09-20T10:00:00Z");
+  assert.equal(resolveObservedAt(undefined, now), now.toISOString());
+  assert.equal(resolveObservedAt("2026-09-20T09:00:00Z", now), "2026-09-20T09:00:00Z");
+  assert.equal(resolveObservedAt("2026-09-20T10:07:00Z", now), now.toISOString());
+  assert.equal(resolveObservedAt("2026-09-21T09:59:00Z", now), now.toISOString());
+  assert.equal(resolveObservedAt("2026-09-21T10:01:00Z", now), undefined);
 });

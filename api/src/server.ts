@@ -3,7 +3,7 @@ import Fastify, { type FastifyError } from "fastify";
 import { evaluateSite, getAlert, listAlerts, scheduleEvaluation } from "./alerts.js";
 import { config } from "./config.js";
 import { FhirError, fhir } from "./fhir.js";
-import { checkValue, toObservationSummary, toOahObservation } from "./mapping.js";
+import { checkValue, resolveObservedAt, toObservationSummary, toOahObservation } from "./mapping.js";
 import { indicatorList, isCitizenIndicator, OAH_PROFILES, PRESENCE_VALUES, type Presence } from "./oah.js";
 import { createWithPhoto, loadPhoto, parsePhoto } from "./photos.js";
 import { highestLevel } from "./rules.js";
@@ -108,13 +108,12 @@ app.post<{ Body: ReportBody }>(
     },
   },
   async (req, reply) => {
-    const { indicator, observedAt = new Date().toISOString(), photo: photoDataUrl, ...body } = req.body;
+    const { indicator, photo: photoDataUrl, ...body } = req.body;
     if (!isCitizenIndicator(indicator)) return reply.code(404).send({ error: `Unknown indicator ${indicator}` });
     const invalid = checkValue(indicator, body.value);
     if (invalid) return reply.code(400).send({ error: invalid });
-    if (Date.parse(observedAt) > Date.now() + 5 * 60_000) {
-      return reply.code(400).send({ error: "observedAt must not be in the future" });
-    }
+    const observedAt = resolveObservedAt(body.observedAt);
+    if (!observedAt) return reply.code(400).send({ error: "observedAt must not be more than 24 hours in the future" });
     const photo = photoDataUrl === undefined ? undefined : parsePhoto(photoDataUrl);
     if (typeof photo === "string") return reply.code(400).send({ error: photo });
     const site = await loadSite(body.siteId);
