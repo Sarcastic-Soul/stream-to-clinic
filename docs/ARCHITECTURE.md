@@ -33,9 +33,10 @@ Caddy on the EC2 host (oneaquahealth.duckdns.org, Let's Encrypt)
 |---|---|---|---|
 | Frontend framework | Next.js (App Router) | 16.3 | Hosted on Vercel Hobby, root directory `web/` |
 | UI runtime | React | 19.2 | Version pinned by Next.js |
-| Styling | Tailwind CSS | 4 | shadcn/ui components planned |
-| Maps (planned) | MapLibre GL + OpenFreeMap tiles | 6.x | No API key; OSM attribution required |
-| Charts (planned) | Recharts | 3.x | |
+| Styling | Tailwind CSS | 4 | Dark mode follows the OS setting |
+| UI components | shadcn/ui (`base-nova`, Base UI primitives) + lucide icons | CLI 4.21 | Copied into `web/src/components/ui`; `cn` package for class merging |
+| Maps | MapLibre GL + `react-map-gl/maplibre` + OpenFreeMap `liberty` tiles | 6.10 / 8.1 | No API key; OSM attribution shown. MapLibre 6 finds its worker via `import.meta.url`, which bundling breaks, so `scripts/copy-maplibre-worker.mjs` copies it to `public/maplibre/<version>/` before `dev`/`build` |
+| Charts | Recharts | 3.10 | Site trend charts |
 | PWA (planned) | Serwist (`@serwist/next`) | 9.x | Recommended by the Next.js PWA guide; `next-pwa` is abandoned |
 | API framework | Fastify | 5.12 | TypeScript, ES modules |
 | FHIR types | `@types/fhir` | 0.0.44 | `fhir4.*` namespace (R4) |
