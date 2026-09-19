@@ -1,0 +1,98 @@
+# Stream-to-Clinic API contract
+
+Base URL: `https://oneaquahealth.duckdns.org` (local: `http://localhost:3001`). JSON over HTTPS. The API is the only writer to the FHIR server; FHIR resources stay readable at `/fhir/*`.
+
+This file is the contract between `web/` and `api/`. Change it together with both sides.
+
+## Types
+
+```ts
+type RiskLevel = "none" | "low" | "medium" | "high";
+type IndicatorKind = "quantity" | "presence";
+type Presence = "absent" | "present" | "abundant";
+
+interface Indicator {
+  id: string;              // e.g. "waterTemperature", "filamentousAlgae"
+  display: string;         // "Water temperature"
+  kind: IndicatorKind;
+  unit?: string;           // UCUM code for quantity indicators, e.g. "Cel"
+  unitLabel?: string;      // human label, e.g. "°C"
+  min?: number;            // plausible input range for quantity indicators
+  max?: number;
+}
+
+interface ObservationSummary {
+  id: string;              // FHIR Observation id
+  indicator: string;       // Indicator.id
+  value: number | Presence;
+  unit?: string;
+  observedAt: string;      // ISO 8601
+  reporter: string;
+}
+
+interface SiteSummary {
+  id: string;              // FHIR Location id
+  name: string;
+  waterBody: string;       // e.g. "Almyros Stream"
+  region: string;          // e.g. "Crete, Greece"
+  lat: number;
+  lon: number;
+  riskLevel: RiskLevel;    // highest level among active alerts, else "none"
+  latest: ObservationSummary[];   // most recent observation per indicator
+}
+
+interface SiteDetail extends SiteSummary {
+  observations: ObservationSummary[];  // newest first, up to 50
+  alerts: AlertSummary[];              // active alerts for this site
+  clinics: ClinicSummary[];            // clinics serving this site
+}
+
+interface ClinicSummary {
+  id: string;              // FHIR Organization id
+  name: string;
+  city: string;
+  siteIds: string[];
+}
+
+interface AlertSummary {
+  id: string;              // FHIR DetectedIssue id
+  risk: "algal-bloom" | "sewage-overflow" | "mosquito-breeding" | "low-oxygen";
+  title: string;           // "Possible algal bloom"
+  level: RiskLevel;
+  siteId: string;
+  siteName: string;
+  createdAt: string;
+  reasons: string[];       // plain-language, one per satisfied condition
+  watchFor: string;        // what clinicians should watch for ("" for environmental-only risks)
+  evidence: string[];      // Observation ids that triggered the alert
+  fhir: { detectedIssue: string; communications: string[] };  // public /fhir URLs
+}
+```
+
+## Endpoints
+
+| Method | Path | Response |
+|---|---|---|
+| GET | `/health` | `{ status: "ok", fhir: "4.0.1" }` or 503 |
+| GET | `/indicators` | `Indicator[]` |
+| GET | `/sites` | `SiteSummary[]` |
+| GET | `/sites/:id` | `SiteDetail` or 404 |
+| POST | `/reports` | `201 { observation: ObservationSummary, fhirUrl: string, alerts: AlertSummary[] }` — `alerts` lists alerts raised or updated by this report |
+| GET | `/clinics` | `ClinicSummary[]` |
+| GET | `/alerts?clinicId=&siteId=` | `AlertSummary[]`, newest first, both filters optional |
+| GET | `/alerts/:id` | `AlertSummary` or 404 |
+
+### `POST /reports` body
+
+```ts
+{
+  siteId: string;
+  indicator: string;         // Indicator.id
+  value: number | Presence;  // number for quantity, Presence for presence
+  observedAt: string;        // ISO 8601; defaults to now if omitted
+  reporter: string;          // display name, 1–120 chars
+  note?: string;             // up to 1000 chars
+}
+```
+
+Errors use `{ error: string, details?: unknown }` with 400 (validation), 404 (unknown site or indicator), 502 (FHIR server rejected the resource).

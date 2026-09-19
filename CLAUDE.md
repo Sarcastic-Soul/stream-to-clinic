@@ -5,6 +5,7 @@ Entry for the OneAquaHealth IEEE Global Hackathon (Track 7, Digital Health Stand
 Read these before starting work:
 - `docs/PLAN.md`: goal, scope, stages with checkboxes, and the **Current status** section (what is done, what is next).
 - `docs/ARCHITECTURE.md`: tech stack with versions, hosting, deploy pipeline, repository layout.
+- `docs/API.md`: the API contract between `web/` and `api/`.
 - `HACKATHON_DETAILS.md`: rules, judging criteria and dates.
 
 Working rules:
