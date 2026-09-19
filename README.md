@@ -1,5 +1,7 @@
 # Stream-to-Clinic
 
+[![Validate FHIR](https://github.com/Sarcastic-Soul/stream-to-clinic/actions/workflows/validate-fhir.yml/badge.svg)](https://github.com/Sarcastic-Soul/stream-to-clinic/actions/workflows/validate-fhir.yml)
+
 One Health early warning for urban streams: citizen observations become HL7 FHIR resources, and risky patterns turn into alerts for the clinics that serve the surrounding community.
 
 Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-hackathon.devpost.com/), **Track 7 — Digital Health Standards**.
@@ -24,6 +26,14 @@ Caddy (oneaquahealth.duckdns.org) ──► API (Fastify, TypeScript)
 - **Standards:** observations follow the OneAquaHealth FHIR Implementation Guide ([hl7-eu/oah](https://github.com/hl7-eu/oah), FHIR 4.0.1). Citizen reports map onto the `ObservationIndicatorsOah` profile using codes from the OAH code system.
 - **Public FHIR endpoint:** `https://oneaquahealth.duckdns.org/fhir/` is readable by anyone (for example `/fhir/metadata`). Writes only go through the API.
 
+## Standards validation
+
+Every change to `api/` is checked against the OneAquaHealth IG with the official HL7 validator (`.github/workflows/validate-fhir.yml`), and CI fails on any profile error.
+
+- **What is validated:** resources produced by the API's own code, not hand-written copies: a citizen report `Observation` for every indicator and value (`ObservationIndicatorsOah`), the seed sites (`LocationOah`), district cohorts (`GroupOah`), baseline health data (`ObservationHealthMeasureOah`), clinics (`Organization`, `HealthcareService`), our `CodeSystem`s, and an alert's `DetectedIssue` and `Communication` (core FHIR R4).
+- **Against:** FHIR 4.0.1 and the OAH IG built from source with SUSHI at [`hl7-eu/oah@b907cf0`](https://github.com/hl7-eu/oah/tree/b907cf0869b59d82d9138b3d147fca66f333d911), using HL7 `validator_cli` 6.10.4.
+- **Run it:** `cd validation && npm install && npm test` (needs Node.js 22+ and Java 21). Details and known limitations: [validation/README.md](validation/README.md).
+
 ## Repository layout
 
 | Path | What it is |
@@ -32,7 +42,8 @@ Caddy (oneaquahealth.duckdns.org) ──► API (Fastify, TypeScript)
 | `api/` | Fastify + TypeScript API: FHIR mapping, report intake, alerts |
 | `fhir/` | HAPI FHIR configuration overrides |
 | `deploy/` | Docker Compose stack, Caddy site block and deploy script for the backend host |
-| `.github/workflows/` | CI (typecheck, lint, build) and backend deployment |
+| `validation/` | OAH IG build and FHIR profile validation of the API's resources |
+| `.github/workflows/` | CI (typecheck, lint, build), FHIR validation and backend deployment |
 
 ## Running locally
 
