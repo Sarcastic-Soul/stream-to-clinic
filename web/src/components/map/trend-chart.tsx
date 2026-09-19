@@ -1,7 +1,7 @@
 "use client";
 
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { formatDateTime, formatShortDate } from "@/lib/format";
+import { formatDateTime, formatShortDate, unitLabel } from "@/lib/format";
 import type { Indicator, ObservationSummary } from "@/lib/types";
 
 interface Props {
@@ -17,13 +17,14 @@ export function TrendChart({ indicator, observations }: Props) {
   if (data.length < 2) return null;
 
   const values = data.map((d) => d.value);
-  const unit = indicator.unitLabel ?? indicator.unit ?? "";
-  const summary = `${indicator.display}: ${data.length} readings from ${Math.min(...values)} to ${Math.max(...values)} ${unit}, latest ${values.at(-1)} ${unit}.`;
+  const unit = unitLabel(indicator);
+  const withUnit = (value: number) => `${value} ${unit}`.trim();
+  const summary = `${indicator.display}: ${data.length} readings from ${withUnit(Math.min(...values))} to ${withUnit(Math.max(...values))}, latest ${withUnit(values.at(-1)!)}.`;
 
   return (
     <figure className="space-y-1">
       <figcaption className="text-sm font-medium">
-        {indicator.display} <span className="font-normal text-muted-foreground">({unit})</span>
+        {indicator.display} {unit && <span className="font-normal text-muted-foreground">({unit})</span>}
       </figcaption>
       <p className="sr-only">{summary}</p>
       <div className="h-32 w-full text-muted-foreground" aria-hidden>
@@ -50,7 +51,7 @@ export function TrendChart({ indicator, observations }: Props) {
             />
             <Tooltip
               labelFormatter={(t) => formatDateTime(new Date(Number(t)).toISOString())}
-              formatter={(value) => [`${value} ${unit}`, indicator.display]}
+              formatter={(value) => [withUnit(Number(value)), indicator.display]}
               contentStyle={{
                 background: "var(--popover)",
                 color: "var(--popover-foreground)",

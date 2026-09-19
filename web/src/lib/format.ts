@@ -25,11 +25,17 @@ export const RISK: Record<RiskLevel, { label: string; color: string; badge: stri
 
 export const RISK_LEVELS: RiskLevel[] = ["none", "low", "medium", "high"];
 
+// Unit to print after a value; "" for dimensionless indicators (pH), whose name already says it.
+export function unitLabel(indicator: Pick<Indicator, "unit" | "unitLabel"> | undefined, fallback?: string): string {
+  const unit = indicator?.unit ?? fallback;
+  if (unit === "[pH]") return "";
+  return indicator?.unitLabel ?? unit ?? "";
+}
+
 export function formatValue(observation: Pick<ObservationSummary, "value" | "unit">, indicator?: Indicator): string {
   const { value } = observation;
   if (typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
-  const unit = indicator?.unitLabel ?? observation.unit ?? "";
-  return unit === "pH" ? `pH ${value}` : `${value} ${unit}`.trim();
+  return `${value} ${unitLabel(indicator, observation.unit)}`.trim();
 }
 
 const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });

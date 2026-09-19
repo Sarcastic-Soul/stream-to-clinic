@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api";
-import { distanceKm } from "@/lib/format";
+import { distanceKm, unitLabel } from "@/lib/format";
 import { QUEUE_EVENT, enqueueReport, isNetworkError, listQueued, type QueuedReport } from "@/lib/report-queue";
 import { readStored, writeStored } from "@/lib/storage";
 import type { Presence, ReportInput, ReportResult, SiteSummary } from "@/lib/types";
@@ -106,7 +106,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
       value = Number(quantity);
       if (quantity.trim() === "" || !Number.isFinite(value)) return setError(`Enter a number for ${indicator.display.toLowerCase()}.`);
       if ((indicator.min !== undefined && value < indicator.min) || (indicator.max !== undefined && value > indicator.max)) {
-        return setError(`${indicator.display} must be between ${indicator.min} and ${indicator.max} ${indicator.unitLabel ?? ""}.`);
+        return setError(`${indicator.display} must be between ${indicator.min} and ${indicator.max}${unitLabel(indicator) && ` ${unitLabel(indicator)}`}.`);
       }
     } else {
       if (!presence) return setError(`Choose whether ${indicator.display.toLowerCase()} is absent, present or abundant.`);
@@ -239,7 +239,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
         options={indicators.data.map((i) => ({
           value: i.id,
           label: i.display,
-          hint: i.kind === "presence" ? "Seen by eye" : i.unitLabel && i.unitLabel !== "pH" ? `Measured in ${i.unitLabel}` : "Measured",
+          hint: i.kind === "presence" ? "Seen by eye" : unitLabel(i) ? `Measured in ${unitLabel(i)}` : "Measured",
         }))}
         value={indicatorId}
         onChange={chooseIndicator}
@@ -262,11 +262,11 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
               className="h-11 text-base"
               autoFocus
             />
-            <span className="min-w-12 text-sm text-muted-foreground">{indicator.unitLabel ?? indicator.unit}</span>
+            {unitLabel(indicator) && <span className="min-w-12 text-sm text-muted-foreground">{unitLabel(indicator)}</span>}
           </div>
           {indicator.min !== undefined && indicator.max !== undefined && (
             <p id="value-hint" className="text-sm text-muted-foreground">
-              Between {indicator.min} and {indicator.max} {indicator.unitLabel}.
+              Between {indicator.min} and {indicator.max}{unitLabel(indicator) && ` ${unitLabel(indicator)}`}.
             </p>
           )}
         </div>
