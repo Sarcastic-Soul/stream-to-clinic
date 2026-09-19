@@ -5,7 +5,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toCommunication, toDetectedIssue } from "../api/src/alerts.js";
 import { toOahObservation } from "../api/src/mapping.js";
+import { buildNarrative } from "../api/src/narrative.js";
 import { CITIZEN_INDICATORS, PRESENCE_VALUES, type CitizenIndicator } from "../api/src/oah.js";
+import { parsePhoto, photoTransaction } from "../api/src/photos.js";
 import type { RiskDecision } from "../api/src/rules.js";
 import { SITES, seedBundle } from "../api/src/seed.js";
 
@@ -53,21 +55,43 @@ function alertResources(): fhir4.Resource[] {
     risk: "algal-bloom",
     fired: true,
     level: "high",
+    levelReason: "filamentous algae was reported as abundant",
     conditions: [
       { text: "Filamentous algae reported as abundant.", met: true, evidence: ["report-filamentousAlgae-abundant"] },
       { text: "Water temperature 27.5 °C (threshold 25 °C).", met: true, evidence: ["report-waterTemperature"] },
       { text: "0.4 mm rain in the last 7 days (Open-Meteo).", met: true, evidence: [] },
     ],
   };
-  const issue = { ...toDetectedIssue(site, decision, NOW.toISOString()), id: "alert-algal-bloom" };
   const clinic = { id: "clinic-almyros", name: "Almyros Primary Care Unit (demo)" };
+  const weather = { rain24h: 0, rain7d: 0.4, source: "Open-Meteo" };
+  const narrative = buildNarrative({ decision, siteName: site.name, reportCount: 9, weather, clinics: [clinic.name] });
+  const issue = { ...toDetectedIssue(site, decision, NOW.toISOString(), narrative), id: "alert-algal-bloom" };
   const communication = { ...toCommunication(site, decision, `DetectedIssue/${issue.id}`, clinic), id: "alert-algal-bloom-clinic-almyros" };
   return [issue, communication];
 }
 
+// A report with a photo: the Binary, the Media pointing at it, and the Observation whose derivedFrom
+// references the Media, as built by the API's photo transaction (placeholder references resolved).
+function photoResources(): fhir4.Resource[] {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC", "base64");
+  const photo = parsePhoto(`data:image/png;base64,${png.toString("base64")}`);
+  if (typeof photo === "string") throw new Error(photo);
+  const report = toOahObservation({
+    siteId: SITE.id, indicator: "filamentousAlgae", value: "abundant", observedAt: "2026-07-14T09:30:00Z", reporter: "Validation sample",
+  });
+  const [binary, media, observation] = (photoTransaction(report, photo).entry ?? []).map((e) => e.resource!);
+  // Fixed ids instead of the random ones, so samples are reproducible.
+  const content = (media as fhir4.Media).content;
+  return [
+    { ...binary!, id: "report-photo" },
+    { ...(media as fhir4.Media), id: "report-photo", content: { ...content, url: content.url?.replace(/Binary\/.*$/, "Binary/report-photo") } },
+    { ...(observation as fhir4.Observation), id: "report-with-photo", derivedFrom: [{ reference: "Media/report-photo" }] },
+  ];
+}
+
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
-const all = [...citizenReports(), ...seedResources(), ...alertResources()];
+const all = [...citizenReports(), ...seedResources(), ...alertResources(), ...photoResources()];
 for (const resource of all) {
   // resourceType first, then id, for readable files.
   const { resourceType, id, ...rest } = resource;

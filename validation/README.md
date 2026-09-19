@@ -8,7 +8,9 @@ Checks that the resources the API produces conform to the OneAquaHealth (OAH) IG
 2. `generate-samples.ts` runs the API's real code and writes the resources to `samples/generated/`:
    - `api/src/mapping.ts`: a citizen report Observation (`ObservationIndicatorsOah`) for every indicator, one per presence value for presence indicators. New indicators in `api/src/oah.ts` are picked up automatically.
    - `api/src/seed.ts`: every resource in the seed transaction (`LocationOah` sites and parent Locations, `Organization`, `HealthcareService`, `GroupOah`, `ObservationHealthMeasureOah`, `CodeSystem`), with the synthetic citizen history cut down to one Observation per indicator.
-   - `api/src/alerts.ts`: the `DetectedIssue` and `Communication` for a raised algal-bloom alert (core R4 only; no OAH profile applies).
+   - `api/src/alerts.ts` + `api/src/narrative.ts`: the `DetectedIssue` (with its step-by-step narrative in `detail`) and `Communication` for a raised algal-bloom alert (core R4 only; no OAH profile applies).
+   - `api/src/photos.ts`: a report with a photo: `Binary`, `Media`, and the `ObservationIndicatorsOah` Observation whose `derivedFrom` points at the Media (fixed ids so samples are reproducible). The validator tries to fetch the Media's `content.url` from the public server and warns when it does not exist; that warning is expected.
+   - The seed also contains the rest-hook `Subscription`, validated against core R4.
 3. `validate.sh` runs `validator_cli` against FHIR 4.0.1 with the built IG on `samples/generated/` (and `samples/baseline/`, if present). The API's CodeSystems are loaded as definitions too, so presence and risk codes are checked. It prints each file's errors and warnings and exits non-zero if there is any error.
 
 ## Run locally
