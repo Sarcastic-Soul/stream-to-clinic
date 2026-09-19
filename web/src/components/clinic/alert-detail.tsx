@@ -1,23 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, type ReactNode } from "react";
-import { ArrowLeftIcon, BotIcon, CircleCheckIcon, ExternalLinkIcon, LeafIcon, StethoscopeIcon } from "lucide-react";
+import { useCallback } from "react";
+import { ArrowLeftIcon, BotIcon, CircleCheckIcon, LeafIcon, StethoscopeIcon } from "lucide-react";
+import { FhirLink } from "@/components/fhir-link";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { useApi } from "@/hooks/use-api";
 import { api, fhirObservationUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-function FhirLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-sm underline underline-offset-2">
-      {children}
-      <ExternalLinkIcon className="size-3.5" aria-hidden />
-      <span className="sr-only">(opens in a new tab)</span>
-    </a>
-  );
-}
 
 // Last two path segments of a FHIR URL, e.g. "DetectedIssue/123".
 const resourceLabel = (url: string) => url.split("/").slice(-2).join("/");

@@ -6,6 +6,7 @@ import type {
   AlertSummary,
   Api,
   ClinicSummary,
+  FhirBundle,
   Indicator,
   ObservationSummary,
   Presence,
@@ -287,6 +288,23 @@ const run = <T>(fn: () => T, ms?: number): Promise<T> => {
   }
 };
 
+// Outline of the API's site Bundle, built from the mock state (demo mode only).
+function siteBundle(id: string): FhirBundle {
+  const site = findSite(id);
+  const entry: NonNullable<FhirBundle["entry"]> = [];
+  const add = (resource: { resourceType: string; id: string } & Record<string, unknown>) =>
+    entry.push({ fullUrl: `${FHIR_URL}/${resource.resourceType}/${resource.id}`, resource });
+  add({ resourceType: "Location", id: site.id, name: site.name, mode: "instance", position: { latitude: site.lat, longitude: site.lon } });
+  for (const clinic of CLINICS.filter((c) => c.siteIds.includes(id))) add({ resourceType: "Organization", id: clinic.id, name: clinic.name });
+  for (const o of observationsBySite.get(id) ?? []) {
+    add({ resourceType: "Observation", id: o.id, status: "final", subject: { reference: `Location/${id}` }, effectiveDateTime: o.observedAt });
+  }
+  for (const a of alerts.filter((a) => a.siteId === id)) {
+    add({ resourceType: "DetectedIssue", id: a.id, status: "final", detail: a.title, implicated: [{ reference: `Location/${id}` }] });
+  }
+  return { resourceType: "Bundle", type: "collection", timestamp: new Date().toISOString(), entry };
+}
+
 export const mockApi: Api = {
   getHealth: () => delay({ status: "ok" as const, fhir: "4.0.1" }),
   getIndicators: () => delay(INDICATORS),
@@ -301,6 +319,7 @@ export const mockApi: Api = {
         clinics: CLINICS.filter((c) => c.siteIds.includes(id)),
       };
     }),
+  getSiteBundle: (id) => run(() => siteBundle(id)),
   createReport: (input) =>
     run(() => {
       // Lets the offline queue be tested in mock mode.

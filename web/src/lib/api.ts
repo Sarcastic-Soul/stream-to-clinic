@@ -41,6 +41,7 @@ const httpApi: Api = {
   getIndicators: () => request("/indicators"),
   getSites: () => request("/sites"),
   getSite: (id) => request(`/sites/${enc(id)}`),
+  getSiteBundle: (id) => request(`/sites/${enc(id)}/bundle`),
   createReport: (input: ReportInput) =>
     request("/reports", {
       method: "POST",
@@ -67,6 +68,7 @@ export const api: Api = {
   getIndicators: () => client().then((c) => c.getIndicators()),
   getSites: () => client().then((c) => c.getSites()),
   getSite: (id) => client().then((c) => c.getSite(id)),
+  getSiteBundle: (id) => client().then((c) => c.getSiteBundle(id)),
   createReport: (input) => client().then((c) => c.createReport(input)),
   getClinics: () => client().then((c) => c.getClinics()),
   getAlerts: (filter) => client().then((c) => c.getAlerts(filter)),
@@ -74,3 +76,4 @@ export const api: Api = {
 };
 
 export const fhirObservationUrl = (id: string) => `${FHIR_URL}/Observation/${enc(id)}`;
+export const siteBundleUrl = (id: string) => `${API_URL}/sites/${enc(id)}/bundle`;

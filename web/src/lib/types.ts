@@ -94,11 +94,20 @@ export interface AlertFilter {
   siteId?: string;
 }
 
+// FHIR R4 collection Bundle from GET /sites/:id/bundle; only the outline is typed here.
+export interface FhirBundle {
+  resourceType: "Bundle";
+  type: "collection";
+  timestamp: string;
+  entry?: { fullUrl: string; resource: { resourceType: string; id?: string } }[];
+}
+
 export interface Api {
   getHealth(): Promise<Health>;
   getIndicators(): Promise<Indicator[]>;
   getSites(): Promise<SiteSummary[]>;
   getSite(id: string): Promise<SiteDetail>;
+  getSiteBundle(id: string): Promise<FhirBundle>;
   createReport(input: ReportInput): Promise<ReportResult>;
   getClinics(): Promise<ClinicSummary[]>;
   getAlerts(filter?: AlertFilter): Promise<AlertSummary[]>;

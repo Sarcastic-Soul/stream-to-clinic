@@ -2,16 +2,26 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback } from "react";
-import { ArrowLeftIcon, MegaphoneIcon } from "lucide-react";
+import { useCallback, type MouseEvent } from "react";
+import { ArrowLeftIcon, DownloadIcon, MegaphoneIcon } from "lucide-react";
 import { AlertCard } from "@/components/alert-card";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useApi } from "@/hooks/use-api";
-import { api } from "@/lib/api";
+import { MOCK, api, siteBundleUrl } from "@/lib/api";
 import { RISK_LEVELS, formatDateTime, formatValue } from "@/lib/format";
 import type { Indicator } from "@/lib/types";
 import { TrendChart } from "./trend-chart";
+
+// Demo mode has no API to link to, so the Bundle is built from the mock data and saved from memory.
+async function downloadMockBundle(event: MouseEvent<HTMLAnchorElement>, siteId: string) {
+  event.preventDefault();
+  const bundle = await api.getSiteBundle(siteId);
+  const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/fhir+json" }));
+  const link = Object.assign(document.createElement("a"), { href: url, download: `${siteId}-bundle.json` });
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 interface Props {
   siteId: string;
@@ -160,6 +170,25 @@ export function SitePanel({ siteId, indicators, onBack }: Props) {
               </ul>
             </section>
           )}
+
+          <section aria-labelledby="data-heading" className="space-y-2">
+            <h2 id="data-heading" className="font-medium">
+              Open data
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Everything about this site as one FHIR R4 Bundle: the site, its cohort and baselines, clinics, the last 30 days of
+              reports with photos, and its alerts with clinic messages.
+            </p>
+            <a
+              href={siteBundleUrl(site.id)}
+              download={`${site.id}-bundle.json`}
+              onClick={MOCK ? (event) => downloadMockBundle(event, site.id) : undefined}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <DownloadIcon data-icon="inline-start" />
+              Download FHIR Bundle
+            </a>
+          </section>
         </>
       )}
     </div>

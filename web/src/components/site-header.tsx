@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/", label: "Map" },
   { href: "/report", label: "Report" },
   { href: "/clinic", label: "Clinic" },
+  { href: "/standards", label: "Standards" },
 ];
 
 export function SiteHeader() {
@@ -43,7 +44,7 @@ export function SiteHeader() {
                     href={href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+                      "inline-flex h-9 items-center rounded-md px-2 text-sm sm:px-3 font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
                       active ? "bg-muted text-foreground" : "text-muted-foreground",
                     )}
                   >
