@@ -1,0 +1,63 @@
+name: Validate FHIR
+
+on:
+  pull_request:
+    paths:
+      - "api/**"
+      - "validation/**"
+      - ".github/workflows/validate-fhir.yml"
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "validation/**"
+      - ".github/workflows/validate-fhir.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: validation
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            validation/package-lock.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # FHIR packages and the built IG depend only on build-ig.sh (pinned IG commit and SUSHI version).
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.fhir/packages
+            validation/.work/oah
+          key: fhir-ig-${{ hashFiles('validation/build-ig.sh') }}
+      - uses: actions/cache@v6
+        with:
+          path: validation/.work/validator_cli-*.jar
+          key: fhir-validator-${{ hashFiles('validation/validate.sh') }}
+
+      # The API's own dependencies, in case the mapping code imports any at runtime.
+      - run: npm ci
+        working-directory: api
+      - run: npm ci
+      - run: ./build-ig.sh
+      - run: npm run generate
+      - run: ./validate.sh
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fhir-validation
+          path: |
+            validation/.work/validation.log
+            validation/samples/generated
+          if-no-files-found: ignore
