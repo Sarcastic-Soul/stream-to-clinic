@@ -44,7 +44,7 @@ Caddy on the EC2 host (oneaquahealth.duckdns.org, Let's Encrypt)
 | FHIR server | HAPI FHIR JPA Server Starter | 8.12.0 (`hapiproject/hapi:v8.12.0-1`) | FHIR R4, rest-hook subscriptions enabled |
 | Database | PostgreSQL | 18 (alpine) | Local to the host; HAPI keeps connections open, which rules out scale-to-zero hosted DBs |
 | Reverse proxy / TLS | Caddy | 2.x | Automatic HTTPS; one site file per project |
-| Weather (planned) | Open-Meteo API | — | Free for non-commercial use, no key; CC BY 4.0 attribution |
+| Weather | Open-Meteo API | — | Free for non-commercial use, no key; CC BY 4.0 attribution ("Weather data by Open-Meteo.com"). Hourly rainfall, cached 1 h per site |
 | Validation (planned) | SUSHI + HL7 `validator_cli` | validator 6.10.x | Builds the OAH IG from source and validates resources in CI |
 | Host OS | Ubuntu Server | 24.04 LTS (arm64) | |
 | Containers | Docker Engine + Compose | 29.x / 5.x | |
@@ -57,12 +57,29 @@ Caddy on the EC2 host (oneaquahealth.duckdns.org, Let's Encrypt)
 - **Codes:** OAH temporary code system `http://hl7.eu/fhir/ig/oah/CodeSystem/temporarySystem-oah-eu`; units in UCUM.
 - Code constants live in `api/src/oah.ts`; report mapping in `api/src/mapping.ts`.
 
+### FHIR resource model
+
+| Concept | Resource | Notes |
+|---|---|---|
+| Stream site | `Location` (`LocationOah`) | Ids, identifiers, names and coordinates from the IG examples: `Loc-Almyros`, `Loc-Giofyros`, `Loc-Giofyros-LowerReach`, `Loc-Benevento`. `partOf` points to the water body (plain `Location`); `address.text` holds the region. `GET /sites` lists every `LocationOah` |
+| Citizen report | `Observation` (`ObservationIndicatorsOah`) | Quantities in UCUM; presence indicators (foam, algae, diptera) coded `absent`/`present`/`abundant` from our `CodeSystem/presence` |
+| Clinic | `Organization` | Fictional, names end in "(demo)" |
+| Clinic serves site | `HealthcareService` | `providedBy` the clinic, `coverageArea` the sites it serves (standard R4, no extension) |
+| District cohort | `Group` (`GroupOah`) | `cohort-<siteId>`: residents living near a site (IG "Living place" characteristic) |
+| Health baseline | `Observation` (`ObservationHealthMeasureOah`) | OAH codes `gastrointestinal`, `campylobacter`; subject = site, focus = cohort, previous calendar year |
+| Alert | `DetectedIssue` | Identifier `…/sid/alert` = `<siteId>:<risk>` (one active issue per site and risk); `code` from our `CodeSystem/water-health-risk`; `implicated` = site; one `evidence` entry per reason, with `detail` → triggering Observations; `mitigation.action.text` = what clinicians should watch for. Active until `identifiedPeriod.end` is set, which happens when a re-evaluation no longer fires the rule |
+| Clinic notification | `Communication` | Category `alert`, `about` → DetectedIssue, `recipient` → clinic, `subject` → district cohort. Sent once per clinic when the issue is raised; none for low oxygen (environmental only) |
+
+Seed data (`api/src/seed.ts`) is one transaction of PUTs with fixed ids, applied on every API start (idempotent; HAPI skips unchanged resources). Synthetic resources carry the `HTEST` tag. The seed includes two weeks of citizen history per site, dated relative to the start time, then every site is evaluated once.
+
+The risk engine (`api/src/rules.ts`, pure) implements the rules in PLAN.md section 7 and records a plain-language reason for every condition, met or not (logged as `risk decision`). `api/src/alerts.ts` turns decisions into FHIR resources; it runs after every `POST /reports` for that site. If Open-Meteo is down, rain-dependent rules do not fire and the reason says the weather was unavailable. For demo recordings, `WEATHER_OVERRIDE='{"rain24h":0,"rain7d":1.2}'` fixes rainfall; reasons then say "demo weather override".
+
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `web/` | Next.js frontend |
-| `api/` | Fastify API (`src/server.ts` routes, `src/fhir.ts` client, `src/mapping.ts`, `src/oah.ts`) |
+| `api/` | Fastify API: `src/server.ts` routes, `src/fhir.ts` client, `src/oah.ts` codes, `src/mapping.ts` report mapping, `src/store.ts` site/clinic reads, `src/seed.ts` demo data, `src/rules.ts` risk rules, `src/weather.ts` Open-Meteo, `src/alerts.ts` DetectedIssue/Communication; `test/` unit tests (`npm test`) |
 | `fhir/application.yaml` | HAPI overrides (Postgres, R4, server address, subscriptions, CORS) |
 | `deploy/compose.yml` | Production stack: postgres, hapi, api (memory limits set) |
 | `deploy/compose.local.yml` | Local override publishing ports 8080 (HAPI) and 3001 (API) |
