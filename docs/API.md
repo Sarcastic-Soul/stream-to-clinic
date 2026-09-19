@@ -28,6 +28,7 @@ interface ObservationSummary {
   unit?: string;
   observedAt: string;      // ISO 8601
   reporter: string;
+  photoUrl?: string;       // absolute URL of the attached photo (served by GET /photos/:id)
 }
 
 interface SiteSummary {
@@ -64,6 +65,7 @@ interface AlertSummary {
   createdAt: string;
   reasons: string[];       // plain-language, one per satisfied condition
   watchFor: string;        // what clinicians should watch for ("" for environmental-only risks)
+  narrative: string[];     // step-by-step account of how the engine reached this alert, in plain language
   evidence: string[];      // bare Observation ids that triggered the alert (public URL: /fhir/Observation/<id>)
   fhir: { detectedIssue: string; communications: string[] };  // public /fhir URLs
 }
@@ -81,6 +83,8 @@ interface AlertSummary {
 | GET | `/clinics` | `ClinicSummary[]` |
 | GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |
 | GET | `/alerts/:id` | `AlertSummary` or 404 |
+| GET | `/photos/:id` | The photo bytes (`image/jpeg`, `image/png` or `image/webp`) or 404 |
+| POST | `/hooks/observation` | Internal: FHIR rest-hook target for the Observation Subscription; not for browsers |
 
 ### `POST /reports` body
 
@@ -92,7 +96,10 @@ interface AlertSummary {
   observedAt?: string;       // ISO 8601; defaults to now if omitted
   reporter: string;          // display name, 1–120 chars
   note?: string;             // up to 1000 chars
+  photo?: string;            // optional data URL (image/jpeg, image/png or image/webp), at most 1.5 MB decoded; the client downscales first
 }
 ```
+
+A photo is stored as a FHIR `Media` resource (content in a `Binary`), and the Observation references it through `derivedFrom`. Citizens are asked not to photograph people.
 
 Errors use `{ error: string, details?: unknown }` with 400 (validation), 404 (unknown site or indicator), 502 (FHIR server rejected the resource).
