@@ -1,0 +1,11 @@
+{
+  "resourceType": "Location",
+  "id": "almyros-reach",
+  "meta": { "profile": ["http://hl7.eu/fhir/ig/oah/StructureDefinition/location-oah"] },
+  "identifier": [{ "system": "https://oneaquahealth.eu/location-id", "value": "almyros-1" }],
+  "name": "Almyros monitoring reach",
+  "description": "Coastal stream segment sampled for OAH monitoring (Almyros Stream, Crete, Greece)",
+  "mode": "instance",
+  "type": [{ "coding": [{ "system": "http://snomed.info/sct", "code": "420531007", "display": "River" }] }],
+  "position": { "longitude": 25.04834, "latitude": 35.33399 }
+}

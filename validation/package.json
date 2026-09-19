@@ -1,0 +1,18 @@
+{
+  "name": "stream-to-clinic-validation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build-ig": "./build-ig.sh",
+    "generate": "tsx generate-samples.ts",
+    "validate": "./validate.sh",
+    "test": "npm run build-ig && npm run generate && npm run validate"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.13"
+  }
+}
