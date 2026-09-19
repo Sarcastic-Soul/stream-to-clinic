@@ -6,25 +6,54 @@ One Health early warning for urban streams: citizen observations become HL7 FHIR
 
 Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-hackathon.devpost.com/), **Track 7 — Digital Health Standards**.
 
-> Status: early scaffold. The pieces below are wired end to end; features are being added.
-> Plan and progress: [docs/PLAN.md](docs/PLAN.md) · Architecture and tech stack: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+**Try it:** [stream-to-clinic.vercel.app](https://stream-to-clinic.vercel.app) · public FHIR R4 endpoint [oneaquahealth.duckdns.org/fhir](https://oneaquahealth.duckdns.org/fhir/metadata) (read-only) · plan and progress in [docs/PLAN.md](docs/PLAN.md) · architecture in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+## The problem
+
+Citizens notice when an urban stream changes (algae mats, foam, smell, mosquito larvae), often days before anyone gets sick. That knowledge rarely reaches the clinics that will see the skin, gastrointestinal or vector-borne illness that follows, because environmental data and health data live in separate systems with no shared standard.
+
+## What it does
+
+1. **Citizens report in under 30 seconds** from a phone: pick a stream site (or the nearest by GPS), choose an indicator, enter a value, optionally add a photo. The app is an installable PWA and queues reports while offline.
+2. **Every report is standard FHIR from the start:** an `ObservationIndicatorsOah` on a public HAPI FHIR R4 server, using the OneAquaHealth code system and UCUM units. Photos are FHIR `Media` + `Binary`.
+3. **An explainable risk engine** combines recent reports with Open-Meteo rainfall: algal bloom, sewage overflow, mosquito breeding and low oxygen. Each alert carries plain-language reasons and a step-by-step account of the decision.
+4. **Clinics get standard FHIR alerts:** a `DetectedIssue` (evidence → the triggering Observations) and a `Communication` to each clinic serving that stream. Environmental-only risks stay on the map.
+5. **Clinicians see one screen:** alerts for their area, what to watch for, and why.
+6. **Other systems can plug in:** a FHIR rest-hook `Subscription` runs the same assessment for Observations written directly to the FHIR server.
+
+| Map and site detail | Report (phone) | Clinic alerts | Alert explained |
+|---|---|---|---|
+| ![Map with a site panel showing active alerts and latest readings](docs/screenshots/map.webp) | ![Report form on a phone](docs/screenshots/report.webp) | ![Clinic alert list](docs/screenshots/clinic.webp) | ![Alert detail with reasons, step-by-step narrative and FHIR links](docs/screenshots/alert.webp) |
+
+Sites come from the OneAquaHealth IG examples (Almyros and Giofyros in Crete, Benevento in Italy). Clinics and health figures are synthetic demo data, and the risk rules are demonstration heuristics, not clinical guidance.
 
 ## How it fits together
 
 ```
-Citizen PWA (Next.js, Vercel)
-        │  HTTPS
+Citizen / clinician browser (installable PWA, Next.js on Vercel)
+        │ HTTPS
         ▼
-Caddy (oneaquahealth.duckdns.org) ──► API (Fastify, TypeScript)
-        │  GET /fhir/* (read-only)          │  maps reports to OAH FHIR profiles
-        ▼                                   ▼
-             HAPI FHIR JPA Server (R4) ◄────┘
-                        │
-                   PostgreSQL 18
+Caddy (oneaquahealth.duckdns.org, automatic HTTPS)
+   ├─ GET /fhir/*  (public, read-only) ─────► HAPI FHIR JPA Server (R4) ──► PostgreSQL 18
+   └─ everything else ──► API (Fastify, TypeScript)        ▲        │
+                            • maps reports to OAH profiles │ writes │ rest-hook Subscription
+                            • risk engine + Open-Meteo ────┘        │ (new Observations,
+                            • DetectedIssue + Communication ◄───────┘  internal network)
 ```
 
-- **Standards:** observations follow the OneAquaHealth FHIR Implementation Guide ([hl7-eu/oah](https://github.com/hl7-eu/oah), FHIR 4.0.1). Citizen reports map onto the `ObservationIndicatorsOah` profile using codes from the OAH code system.
-- **Public FHIR endpoint:** `https://oneaquahealth.duckdns.org/fhir/` is readable by anyone (for example `/fhir/metadata`). Writes only go through the API.
+| Concept | FHIR resource |
+|---|---|
+| Stream site | `Location` (`LocationOah`) |
+| Citizen report | `Observation` (`ObservationIndicatorsOah`) |
+| Report photo | `Media` + `Binary` |
+| District cohort | `Group` (`GroupOah`) |
+| Baseline health data | `Observation` (`ObservationHealthMeasureOah`) |
+| Clinic and the sites it serves | `Organization` + `HealthcareService` |
+| Health alert | `DetectedIssue` |
+| Clinic notification | `Communication` |
+| Trigger for external observations | `Subscription` (rest-hook) |
+
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#fhir-resource-model). API contract: [docs/API.md](docs/API.md).
 
 ## Standards validation
 
