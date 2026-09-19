@@ -64,7 +64,7 @@ interface AlertSummary {
   createdAt: string;
   reasons: string[];       // plain-language, one per satisfied condition
   watchFor: string;        // what clinicians should watch for ("" for environmental-only risks)
-  evidence: string[];      // Observation ids that triggered the alert
+  evidence: string[];      // bare Observation ids that triggered the alert (public URL: /fhir/Observation/<id>)
   fhir: { detectedIssue: string; communications: string[] };  // public /fhir URLs
 }
 ```
@@ -79,7 +79,7 @@ interface AlertSummary {
 | GET | `/sites/:id` | `SiteDetail` or 404 |
 | POST | `/reports` | `201 { observation: ObservationSummary, fhirUrl: string, alerts: AlertSummary[] }` — `alerts` lists alerts raised or updated by this report |
 | GET | `/clinics` | `ClinicSummary[]` |
-| GET | `/alerts?clinicId=&siteId=` | `AlertSummary[]`, newest first, both filters optional |
+| GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |
 | GET | `/alerts/:id` | `AlertSummary` or 404 |
 
 ### `POST /reports` body
@@ -89,7 +89,7 @@ interface AlertSummary {
   siteId: string;
   indicator: string;         // Indicator.id
   value: number | Presence;  // number for quantity, Presence for presence
-  observedAt: string;        // ISO 8601; defaults to now if omitted
+  observedAt?: string;       // ISO 8601; defaults to now if omitted
   reporter: string;          // display name, 1–120 chars
   note?: string;             // up to 1000 chars
 }
