@@ -37,7 +37,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           params=$(jq -n --arg sha "$SHA" '{commands: [
-            "set -euo pipefail",
+            "set -eu",
             "[ -d /srv/stream-to-clinic/.git ] || git clone --quiet https://github.com/Sarcastic-Soul/stream-to-clinic.git /srv/stream-to-clinic",
             "cd /srv/stream-to-clinic",
             "git fetch --quiet origin main",
