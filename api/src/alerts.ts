@@ -190,7 +190,8 @@ async function evaluate(site: Site, log: FastifyBaseLogger): Promise<AlertSummar
   const [observations, weather, existing, allClinics] = await Promise.all([
     siteObservations(site.id, 200, since),
     getWeather(site.lat, site.lon),
-    fhir.search("DetectedIssue", { implicated: `Location/${site.id}`, code: `${RISK_SYSTEM}|`, _count: 100 }),
+    // Newest first, so the active issue is never pushed off the page by older closed ones.
+    fhir.search("DetectedIssue", { implicated: `Location/${site.id}`, code: `${RISK_SYSTEM}|`, _sort: "-_lastUpdated", _count: 100 }),
     loadClinics(),
   ]);
   const clinics = allClinics.filter((c) => c.siteIds.includes(site.id));

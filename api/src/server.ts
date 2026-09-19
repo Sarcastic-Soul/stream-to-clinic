@@ -194,13 +194,22 @@ app.get<{ Params: { id: string } }>(
 
 await app.listen({ host: "0.0.0.0", port: config.port });
 
-// Seed in the background: HAPI can take a minute or two to come up after a deploy.
+// Applies the seed (its synthetic history is dated relative to today) and re-runs every site's rules,
+// so alerts also close when their evidence ages out of the look-back window or the weather changes.
+async function refresh() {
+  const count = await seed();
+  app.log.info({ resources: count }, "seed data applied");
+  for (const site of await loadSites()) await evaluateSite(site, app.log);
+}
+
+const REFRESH_MS = 24 * 3_600_000;
+
+// Seed in the background: HAPI can take a minute or two to come up after a deploy. Then refresh daily.
 async function seedAndEvaluate() {
   for (let attempt = 1; attempt <= 60; attempt++) {
     try {
-      const count = await seed();
-      app.log.info({ resources: count }, "seed data applied");
-      for (const site of await loadSites()) await evaluateSite(site, app.log);
+      await refresh();
+      setInterval(() => refresh().catch((err) => app.log.error(err, "daily refresh failed")), REFRESH_MS);
       return;
     } catch (err) {
       app.log.warn({ attempt, err: err instanceof FhirError ? err.outcome : String(err) }, "seeding failed, retrying");
