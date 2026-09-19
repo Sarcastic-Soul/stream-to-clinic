@@ -12,7 +12,7 @@ Citizen stream observations become OneAquaHealth FHIR resources, and risky patte
 
 ## Links
 
-- Working prototype: https://stream-to-clinic.vercel.app
+- Working prototype: https://stream-to-clinic.vercel.app (Standards overview: https://stream-to-clinic.vercel.app/standards)
 - Public FHIR R4 endpoint (read-only): https://oneaquahealth.duckdns.org/fhir/metadata
 - Source code: https://github.com/Sarcastic-Soul/stream-to-clinic
 - Demo video: _add the YouTube/Vimeo link_
@@ -26,7 +26,7 @@ The track's problem is fragmented data and a lack of standards between environme
 - **FHIR models:** citizen reports are stored as `ObservationIndicatorsOah`, stream sites as `LocationOah`, district cohorts as `GroupOah` and baseline disease prevalence as `ObservationHealthMeasureOah`, using the OAH code system and UCUM units. Alerts are standard FHIR R4 `DetectedIssue` and `Communication` resources that any clinical system can read.
 - **Conformance:** every change is validated in CI against the OAH IG, built from source with SUSHI and checked with the official HL7 validator. Resources come from the application's real code, not hand-written samples, and CI fails on any profile error.
 - **Agent:** an explainable risk engine reads new observations and live weather, decides whether a health risk exists, and writes down each step of its reasoning inside the FHIR alert.
-- **Integration:** a public FHIR server and a FHIR `Subscription` mean other OAH systems can write observations and have them assessed through standard FHIR alone.
+- **Integration:** a public FHIR server and a FHIR `Subscription` mean other OAH systems can write observations and have them assessed through standard FHIR alone. Any site's data downloads as one FHIR `Bundle`, and a Standards page in the app links to live example resources.
 
 It also draws on Track 6 (early-warning alerts) and Track 2 (map dashboard) to close the One Health loop.
 
@@ -94,4 +94,4 @@ Stream-to-Clinic connects the two with open standards:
 ## Notes for judges
 
 - All sites come from the OneAquaHealth IG examples (Almyros and Giofyros in Crete, Benevento in Italy). Clinics and health figures are synthetic demo data. Risk rules are demonstration heuristics, not clinical guidance.
-- Try it: open the map, pick a site, submit a report, then look up the created resource under `/fhir/Observation`.
+- Try it: open the map, pick a site, submit a report, then follow the link to the created FHIR resource. The Standards page (https://stream-to-clinic.vercel.app/standards) maps every concept to its FHIR resource and OAH profile, with live examples.

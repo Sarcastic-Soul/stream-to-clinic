@@ -10,7 +10,8 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 - **Done:** Stages 0–7, and the Stage 8 documents (README, SUBMISSION.md, DEMO_SCRIPT.md). Installable PWA with offline report queue, report photos (`Media` + `Binary`), alert narrative, FHIR rest-hook Subscription, accessibility pass, code-review fixes. Everything is live.
 - **Validation:** CI checks resources from the real API code against the OAH IG: 0 errors.
 - **Next (user):** record the demo video from [DEMO_SCRIPT.md](DEMO_SCRIPT.md), add its link to [SUBMISSION.md](SUBMISSION.md), submit on Devpost before Sep 30, 9:00 PM PDT.
-- **Optional if time remains:** stretch items (FHIR `Bundle` export per site, SMART on FHIR launch), and the review's minor leftovers: duplicate evaluation on API reports (Subscription re-evaluates too; harmless), alert reason dates in UTC, 200-item cap on alert/communication lists.
+- **Also done:** site FHIR `Bundle` export and a `/standards` page for judges.
+- **Optional if time remains:** SMART on FHIR launch; review leftovers: alert reason dates in UTC, 200-item cap on alert/communication lists.
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
 - **Demo note:** the algal-bloom rule needs a dry week. For the video, the API accepts an optional `WEATHER_OVERRIDE` env var (e.g. `{"rain24h":0,"rain7d":1.2}`); alert reasons then say "demo weather override". Production uses real Open-Meteo weather.
 
@@ -61,7 +62,8 @@ One-line pitch: *"A bloom spotted on Monday; nearby clinics warned on Tuesday, n
 ### Stretch
 - In-browser photo pre-tagging with CLIP (`transformers.js`), confirmed by the citizen.
 - SMART on FHIR launch for the clinician view.
-- Export a site's data as a FHIR `Bundle`.
+- [x] Export a site's data as a FHIR `Bundle` (`GET /sites/:id/bundle`, download link in the site panel).
+- [x] Standards page (`/standards`) for judges: FHIR mapping, live example resources, conformance, Subscription integration.
 
 ### Out of scope
 - User accounts and login (reports carry a display name only).
