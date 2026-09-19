@@ -1,11 +1,13 @@
 import cors from "@fastify/cors";
 import Fastify, { type FastifyError } from "fastify";
 import { evaluateSite, getAlert, listAlerts, scheduleEvaluation } from "./alerts.js";
+import { loadSiteBundle } from "./bundle.js";
 import { config } from "./config.js";
 import { FhirError, fhir } from "./fhir.js";
 import { checkValue, resolveObservedAt, toObservationSummary, toOahObservation } from "./mapping.js";
 import { indicatorList, isCitizenIndicator, OAH_PROFILES, PRESENCE_VALUES, type Presence } from "./oah.js";
 import { createWithPhoto, loadPhoto, parsePhoto } from "./photos.js";
+import { RecentIds } from "./recent.js";
 import { highestLevel } from "./rules.js";
 import { seed } from "./seed.js";
 import { latestPerIndicator, loadClinics, loadSite, loadSites, siteObservations } from "./store.js";
@@ -76,6 +78,18 @@ app.get<{ Params: { id: string } }>("/sites/:id", { schema: ID_PARAMS }, async (
   };
 });
 
+app.get<{ Params: { id: string } }>("/sites/:id/bundle", { schema: ID_PARAMS }, async (req, reply) => {
+  const bundle = await loadSiteBundle(req.params.id);
+  if (!bundle) return reply.code(404).send({ error: `Unknown site ${req.params.id}` });
+  return reply
+    .type("application/fhir+json; charset=utf-8")
+    .header("Content-Disposition", `attachment; filename="${req.params.id}-bundle.json"`)
+    .send(JSON.stringify(bundle, null, 2));
+});
+
+// Observation ids written by POST /reports in the last 2 minutes; see the Subscription hook.
+const recentReports = new RecentIds(120_000);
+
 interface ReportBody {
   siteId: string;
   indicator: string;
@@ -121,6 +135,7 @@ app.post<{ Body: ReportBody }>(
 
     const resource = toOahObservation({ ...body, indicator, observedAt });
     const created = photo ? await createWithPhoto(resource, photo) : await fhir.create(resource);
+    if (created.id) recentReports.add(created.id);
     const observation = toObservationSummary(created);
 
     let alerts: Awaited<ReturnType<typeof evaluateSite>> = [];
@@ -158,6 +173,8 @@ app.put<{ Body: fhir4.Observation | undefined }>("/hooks/observation/Observation
   if (observation?.resourceType !== "Observation" || !siteId || !observation.meta?.profile?.includes(OAH_PROFILES.observationIndicators)) {
     return reply.code(204).send();
   }
+  // Reports written through POST /reports were evaluated there already.
+  if (observation.id && recentReports.has(observation.id)) return reply.code(204).send();
   const site = await loadSite(siteId);
   if (site) {
     req.log.info({ observation: observation.id, siteId }, "subscription notification: re-evaluating site");

@@ -17,6 +17,7 @@ export const PRESENCE_SYSTEM = `${STC_CANONICAL}/CodeSystem/presence`;
 export const RISK_SYSTEM = `${STC_CANONICAL}/CodeSystem/water-health-risk`;
 export const ALERT_ID_SYSTEM = `${STC_CANONICAL}/sid/alert`;
 export const CLINIC_ID_SYSTEM = `${STC_CANONICAL}/sid/clinic`;
+export const BUNDLE_ID_SYSTEM = `${STC_CANONICAL}/sid/site-bundle`;
 
 export const UCUM = "http://unitsofmeasure.org";
 // Standard HL7 tag for synthetic test data; applied to all seeded demo resources.

@@ -81,6 +81,7 @@ interface AlertSummary {
 | GET | `/indicators` | `Indicator[]` |
 | GET | `/sites` | `SiteSummary[]` |
 | GET | `/sites/:id` | `SiteDetail` or 404 |
+| GET | `/sites/:id/bundle` | FHIR R4 `Bundle` (type `collection`, `application/fhir+json`, sent as a `<siteId>-bundle.json` download) or 404. Contains the site `Location` and its water body, the district `Group` and its health-measure baselines, the serving clinics (`Organization`, `HealthcareService`), the last 30 days of citizen `Observation`s (up to 200) with their photo `Media` (the `Binary` stays a link), and the site's `DetectedIssue`s (active and closed) with their `Communication`s. `fullUrl`s are public `/fhir` URLs |
 | POST | `/reports` | `201 { observation: ObservationSummary, fhirUrl: string, alerts: AlertSummary[] }` — `alerts` lists alerts raised or updated by this report |
 | GET | `/clinics` | `ClinicSummary[]` |
 | GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |

@@ -4,6 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toCommunication, toDetectedIssue } from "../api/src/alerts.js";
+import { toSiteBundle } from "../api/src/bundle.js";
 import { toOahObservation } from "../api/src/mapping.js";
 import { buildNarrative } from "../api/src/narrative.js";
 import { CITIZEN_INDICATORS, PRESENCE_VALUES, type CitizenIndicator } from "../api/src/oah.js";
@@ -89,9 +90,18 @@ function photoResources(): fhir4.Resource[] {
   ];
 }
 
+// The site export (GET /sites/:id/bundle) as a collection Bundle of the samples above. Photos stay
+// Media links (no Binary); our CodeSystems and the Subscription are not part of a site's data.
+function siteBundle(resources: fhir4.Resource[]): fhir4.Bundle {
+  const members = resources.filter((r) => !["Binary", "CodeSystem", "Subscription"].includes(r.resourceType));
+  const bundle = toSiteBundle(members, NOW);
+  return { ...bundle, id: "site-bundle", identifier: { ...bundle.identifier, value: "site-bundle-sample" } };
+}
+
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
-const all = [...citizenReports(), ...seedResources(), ...alertResources(), ...photoResources()];
+const resources = [...citizenReports(), ...seedResources(), ...alertResources(), ...photoResources()];
+const all = [...resources, siteBundle(resources)];
 for (const resource of all) {
   // resourceType first, then id, for readable files.
   const { resourceType, id, ...rest } = resource;
