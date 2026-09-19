@@ -7,8 +7,9 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 
 ## Current status
 
-- **Done:** Stage 0 (infrastructure, CI/CD), Stage 1 (seed data), Stage 4 (risk engine and FHIR alerts). All API endpoints in [API.md](API.md) are live.
-- **In progress:** Stages 2, 3 and 5 (frontend report, map and clinician pages), Stage 6 (OAH IG validation in CI).
+- **Done:** Stages 0–5. Seed data, all API endpoints in [API.md](API.md), risk engine with FHIR alerts, and the map, report and clinician pages are live. The Sep 24 checkpoint is met early.
+- **In progress:** Stage 6 (OAH IG validation in CI), branch awaiting merge.
+- **Next:** Stage 7 (PWA and offline queue, accessibility, alert narrative, photos, FHIR Subscription).
 - **Demo note:** the algal-bloom rule needs a dry week. For the video, the API accepts an optional `WEATHER_OVERRIDE` env var (e.g. `{"rain24h":0,"rain7d":1.2}`); alert reasons then say "demo weather override". Production uses real Open-Meteo weather.
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
 
@@ -91,16 +92,16 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - [x] Idempotent seed script (conditional create/update, safe to rerun), run on deploy
 - **Done when:** `/fhir/Location` returns the sites, and `POST /reports` for a seeded site returns 201.
 
-### Stage 2: Citizen reporting (Sep 20)
+### Stage 2: Citizen reporting ✅ (Sep 19)
 - [x] `GET /sites` in the API for the frontend
-- [ ] Report page: pick a site (list or nearest by GPS), indicator, value, optional note
-- [ ] Clear success state with a link to the created FHIR resource
+- [x] Report page: pick a site (list or nearest by GPS), indicator, value, optional note
+- [x] Clear success state with a link to the created FHIR resource
 - **Done when:** a report submitted from a phone shows up in `/fhir/Observation`.
 
-### Stage 3: Map dashboard (Sep 21)
-- [ ] MapLibre + OpenFreeMap map with all sites
-- [ ] Site panel: latest observations, simple trend chart
-- [ ] Sites coloured by risk level (placeholder until Stage 4)
+### Stage 3: Map dashboard ✅ (Sep 19)
+- [x] MapLibre + OpenFreeMap map with all sites
+- [x] Site panel: latest observations, simple trend chart
+- [x] Sites coloured by risk level
 - **Done when:** the map shows every seeded site with its latest readings.
 
 ### Stage 4: Risk engine and alerts ✅ (Sep 19)
@@ -110,9 +111,9 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - [x] Re-evaluate a site whenever a new report arrives; avoid duplicate open alerts
 - **Done when:** submitting the demo scenario (algae + warm water + dry week) produces a `DetectedIssue` and a `Communication`.
 
-### Stage 5: Clinician view (Sep 24)
-- [ ] Choose a clinic; list its alerts, newest first
-- [ ] Alert detail: risk, affected site, evidence, what to watch for, in plain language
+### Stage 5: Clinician view ✅ (Sep 19)
+- [x] Choose a clinic; list its alerts, newest first
+- [x] Alert detail: risk, affected site, evidence, what to watch for, in plain language
 - **Checkpoint (Sep 24):** all must-haves except validation are working. Should-haves start only after this.
 
 ### Stage 6: Standards validation (Sep 25)
