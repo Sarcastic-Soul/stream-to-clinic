@@ -4,3 +4,5 @@ services:
     ports: ["8080:8080"]
   api:
     ports: ["3001:3000"]
+    environment:
+      PUBLIC_FHIR_URL: http://localhost:8080/fhir
