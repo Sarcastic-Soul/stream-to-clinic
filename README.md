@@ -5,6 +5,7 @@ One Health early warning for urban streams: citizen observations become HL7 FHIR
 Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-hackathon.devpost.com/), **Track 7 — Digital Health Standards**.
 
 > Status: early scaffold. The pieces below are wired end to end; features are being added.
+> Plan and progress: [docs/PLAN.md](docs/PLAN.md) · Architecture and tech stack: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## How it fits together
 

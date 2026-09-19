@@ -1,0 +1,175 @@
+# Stream-to-Clinic: Project Plan and Progress
+
+Last updated: 2026-09-19
+Submission deadline: **Sep 30, 2026, 9:00 PM PDT** (Oct 1, 9:30 AM IST). Target: submit by Sep 30 evening IST.
+
+Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARCHITECTURE.md). Hackathon rules, dates and judges are in [../HACKATHON_DETAILS.md](../HACKATHON_DETAILS.md).
+
+## Current status
+
+- **Done:** Stage 0 (infrastructure, scaffold, CI/CD, live frontend and backend).
+- **Next:** Stage 1 (seed data), then Stage 2 (citizen report form).
+- **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
+
+Keep this section and the stage checkboxes below up to date as work lands.
+
+## 1. Goal
+
+Finish in the top 5 of the OneAquaHealth IEEE Global Hackathon (prizes are overall, not per track).
+
+We enter **Track 7 — Digital Health Standards** ("FHIR models, AI agents, and integration frameworks"), and borrow from Track 6 (alerts) and Track 2 (dashboards) to show the full One Health loop.
+
+## 2. Problem and pitch
+
+Citizens already observe urban streams (algae, foam, smell, dead fish, mosquitoes), and OneAquaHealth has a FHIR Implementation Guide for environmental and health indicators. But what citizens observe never reaches the people who treat the resulting illness. Environmental and health data live in separate systems with no shared standard.
+
+**Stream-to-Clinic** turns a citizen's stream report into standard FHIR resources (using the OneAquaHealth IG profiles), combines it with weather data to spot health risks, and sends a FHIR alert to the clinics serving that neighbourhood.
+
+One-line pitch: *"A bloom spotted on Monday; nearby clinics warned on Tuesday, not after the first ER cases."*
+
+## 3. Users
+
+| User | What they do | What they get |
+|---|---|---|
+| Citizen scientist | Reports a stream observation in under 30 seconds | Sees their report on the map; knows it mattered |
+| Public health officer | Watches the map and risk alerts | Early warning per stream and district |
+| Clinician / clinic | Receives alerts for its area | What to watch for (e.g. gastrointestinal cases), and why |
+| Ecologist / OAH researcher | Browses the FHIR server | Standardised, reusable data (FAIR) |
+
+## 4. Scope
+
+### Must have (MVP)
+1. Seed data: stream sites, clinics, district cohorts, baseline health data.
+2. Citizen report form (mobile-first).
+3. Map dashboard with per-site details.
+4. Rule-based, explainable risk engine using observations plus Open-Meteo weather.
+5. FHIR alerts: `DetectedIssue` plus `Communication` to affected clinics.
+6. Clinician view with the reasoning in plain language.
+7. Public read-only FHIR endpoint so judges can inspect real resources.
+8. Profile validation against the OAH IG in CI.
+
+### Should have (after the Sep 24 checkpoint, if on track)
+- Installable PWA with an offline report queue.
+- Photo attachment on reports (FHIR `Media` + `Binary`).
+- Alert "agent" narrative: the risk engine explains its decision step by step (matches the "AI agents" wording in Track 7).
+- FHIR Subscription (rest-hook) so new observations trigger the risk engine the standard way.
+- Accessibility pass (contrast, labels, keyboard, screen reader).
+
+### Stretch
+- In-browser photo pre-tagging with CLIP (`transformers.js`), confirmed by the citizen.
+- SMART on FHIR launch for the clinician view.
+- Export a site's data as a FHIR `Bundle`.
+
+### Out of scope
+- User accounts and login (reports carry a display name only).
+- Native mobile apps.
+- Machine-learning prediction models (rules are explainable and defensible in the time available).
+- Real patient data. All health data is synthetic or aggregate, as in the OAH IG examples.
+- Paid services of any kind.
+
+## 5. Stages
+
+Each stage lists what it delivers and when it counts as done. Tick items as they land.
+
+### Stage 0: Infrastructure and scaffold ✅ (Sep 19)
+- [x] AWS: IAM user, budget alerts, credit-expiry reminders
+- [x] EC2 host with Docker, Caddy, swap, SSM access, self-terminate on Oct 29
+- [x] Domain and HTTPS (`oneaquahealth.duckdns.org`)
+- [x] Repo scaffold: `web/`, `api/`, `fhir/`, `deploy/`
+- [x] HAPI FHIR R4 + Postgres running behind Caddy; `/fhir` public read-only
+- [x] API: `/health`, `POST /reports` mapping to `ObservationIndicatorsOah`
+- [x] CI (typecheck, lint, build) and automatic backend deploy (OIDC → SSM)
+- [x] Frontend on Vercel, CORS configured
+
+### Stage 1: Data foundation (Sep 20)
+Sites come from the OAH IG examples only (European OAH sites; no other regions).
+- [ ] Stream sites as `LocationOah`: Almyros, Giofyros (Crete, Greece) and Benevento (Italy) sites from the IG, with coordinates
+- [ ] Clinics as `Organization`, linked to the sites they serve
+- [ ] District cohorts as `GroupOah`
+- [ ] Baseline district health data as `ObservationHealthMeasureOah` (e.g. gastrointestinal prevalence), modelled on the IG's disease-prevalence example
+- [ ] Idempotent seed script (conditional create/update, safe to rerun), run on deploy
+- **Done when:** `/fhir/Location` returns the sites, and `POST /reports` for a seeded site returns 201.
+
+### Stage 2: Citizen reporting (Sep 20)
+- [ ] `GET /sites` in the API for the frontend
+- [ ] Report page: pick a site (list or nearest by GPS), indicator, value, optional note
+- [ ] Clear success state with a link to the created FHIR resource
+- **Done when:** a report submitted from a phone shows up in `/fhir/Observation`.
+
+### Stage 3: Map dashboard (Sep 21)
+- [ ] MapLibre + OpenFreeMap map with all sites
+- [ ] Site panel: latest observations, simple trend chart
+- [ ] Sites coloured by risk level (placeholder until Stage 4)
+- **Done when:** the map shows every seeded site with its latest readings.
+
+### Stage 4: Risk engine and alerts (Sep 22–23)
+- [ ] Open-Meteo client (last 7 days rainfall and temperature per site)
+- [ ] Rules from section 7, with reasons recorded for every decision
+- [ ] On a triggered rule: create `DetectedIssue` (evidence → triggering Observations) and `Communication` to the site's clinics
+- [ ] Re-evaluate a site whenever a new report arrives; avoid duplicate open alerts
+- **Done when:** submitting the demo scenario (algae + warm water + dry week) produces a `DetectedIssue` and a `Communication`.
+
+### Stage 5: Clinician view (Sep 24)
+- [ ] Choose a clinic; list its alerts, newest first
+- [ ] Alert detail: risk, affected site, evidence, what to watch for, in plain language
+- **Checkpoint (Sep 24):** all must-haves except validation are working. Should-haves start only after this.
+
+### Stage 6: Standards validation (Sep 25)
+- [ ] Build the OAH IG from source with SUSHI (pinned commit)
+- [ ] CI job: run `validator_cli` on sample resources produced by the API mapping
+- [ ] Validation badge and summary in the README
+- **Done when:** CI fails if a mapping produces a resource that does not conform to the OAH profile.
+
+### Stage 7: Polish and should-haves (Sep 26–27)
+- [ ] PWA manifest, installability, offline report queue
+- [ ] Accessibility pass
+- [ ] Should-haves in order: alert narrative, photos, FHIR Subscription
+- [ ] Realistic demo dataset and bug fixing
+
+### Stage 8: Submission (Sep 28–30)
+- [ ] README: architecture diagram, screenshots, one-command setup
+- [ ] Track alignment statement
+- [ ] Project description: problem, solution, target users, expected impact on ecosystem and human health
+- [ ] Demo video, 3–5 minutes (script in section 6)
+- [ ] Working prototype link and public FHIR endpoint in the submission
+- [ ] Submit on Devpost by Sep 30 evening IST
+
+## 6. Demo flow (3–5 minute video)
+
+1. **Hook (20 s):** the problem, with one real-looking scenario.
+2. **Citizen (60 s):** phone view, report "filamentous algae, water 27 °C" at a stream site.
+3. **Standards (45 s):** the same report as FHIR JSON on the public server, validated against the OAH profile.
+4. **Risk (45 s):** warm water plus algae plus a dry week trips the bloom rule; the map turns red, with the reasons shown.
+5. **Clinic (45 s):** the clinician view shows the alert and what to watch for.
+6. **Scale (30 s):** architecture, open standards, open-source stack, any city can deploy it.
+
+## 7. Risk rules (first version)
+
+These are demo heuristics with configurable thresholds, to be calibrated with OAH ecologists. They are not clinical guidance.
+
+| Risk | Trigger | Health concern for clinics |
+|---|---|---|
+| Algal bloom | Filamentous algae reported **and** water ≥ 25 °C **and** ≤ 5 mm rain in 7 days | Skin irritation, gastrointestinal symptoms after contact |
+| Sewage overflow | ≥ 20 mm rain in 24 h **and** foam/colour/smell reported within 48 h | Gastrointestinal infections |
+| Mosquito breeding | Diptera reported **and** water ≥ 20 °C **and** rain in the last 7 days | Vector-borne disease watch |
+| Low oxygen | Dissolved O₂ < 4 mg/L | Ecosystem stress (fish kills); environmental, not a clinic alert |
+
+## 8. How this maps to the judging criteria
+
+| Criterion | Weight | How we earn it |
+|---|---|---|
+| Impact & Alignment | 30% | Full One Health loop (environment → human health); uses the OAH IG, OAH indicators and OAH sites |
+| Innovation & Creativity | 20% | Citizen-science-to-FHIR alert pipeline for urban streams; few teams attempt FHIR |
+| Technical Implementation | 20% | Real HAPI server, profile validation in CI, automated deploys, public FHIR endpoint |
+| Usability & UX | 15% | Report in under 30 s, one-screen clinician view, mobile-first, accessible |
+| Feasibility & Scalability | 15% | Open standards and open-source stack, zero licence cost, one-command deploy |
+
+## 9. Risks
+
+| Risk | Mitigation |
+|---|---|
+| OAH IG is a draft and not published as a package | Build it from source with SUSHI; pin the commit we validate against |
+| HAPI memory or startup issues | Memory limits set; ~2.3 GB headroom on the host; `/health` smoke test on every deploy |
+| AWS credit runs out | Budget alerts at $35/$42/$46/$50; host self-terminates Oct 29 |
+| Judges test the live site late | Judging ends Oct 15; host stays up until Oct 29 |
+| Scope creep | Must-haves first; should-haves only after the Sep 24 checkpoint |
