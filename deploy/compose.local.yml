@@ -1,0 +1,6 @@
+# Local development only: publish ports so the stack is reachable from the host.
+services:
+  hapi:
+    ports: ["8080:8080"]
+  api:
+    ports: ["3001:3000"]

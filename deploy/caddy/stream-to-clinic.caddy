@@ -1,0 +1,19 @@
+oneaquahealth.duckdns.org {
+	encode zstd gzip
+
+	# Public, read-only view of the FHIR server; writes go through the API.
+	@fhirRead {
+		path /fhir /fhir/*
+		method GET HEAD OPTIONS
+	}
+	handle @fhirRead {
+		reverse_proxy stream-to-clinic-hapi-1:8080
+	}
+	handle /fhir* {
+		respond "FHIR writes go through the Stream-to-Clinic API" 405
+	}
+
+	handle {
+		reverse_proxy stream-to-clinic-api-1:3000
+	}
+}

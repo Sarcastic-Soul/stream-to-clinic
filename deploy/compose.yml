@@ -1,0 +1,52 @@
+name: stream-to-clinic
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hapi
+      POSTGRES_USER: hapi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in the server env file}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hapi -d hapi"]
+      interval: 10s
+      retries: 10
+    mem_limit: 256m
+    networks: [internal]
+
+  hapi:
+    image: hapiproject/hapi:v8.12.0-1
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:///configs/application.yaml
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+UseSerialGC
+    volumes:
+      - ../fhir/application.yaml:/configs/application.yaml:ro
+    mem_limit: 1280m
+    networks: [internal, web]
+
+  api:
+    build: ../api
+    restart: unless-stopped
+    depends_on: [hapi]
+    environment:
+      PORT: 3000
+      FHIR_BASE_URL: http://hapi:8080/fhir
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    mem_limit: 256m
+    networks: [internal, web]
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+  web:
+    external: true
