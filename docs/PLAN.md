@@ -7,8 +7,9 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 
 ## Current status
 
-- **Done:** Stage 0 (infrastructure, scaffold, CI/CD, live frontend and backend).
-- **Next:** Stage 1 (seed data), then Stage 2 (citizen report form).
+- **Done:** Stage 0 (infrastructure, CI/CD), Stage 1 (seed data), Stage 4 (risk engine and FHIR alerts). All API endpoints in [API.md](API.md) are live.
+- **In progress:** Stages 2, 3 and 5 (frontend report, map and clinician pages), Stage 6 (OAH IG validation in CI).
+- **Demo note:** the algal-bloom rule needs a dry week. For the video, the API accepts an optional `WEATHER_OVERRIDE` env var (e.g. `{"rain24h":0,"rain7d":1.2}`); alert reasons then say "demo weather override". Production uses real Open-Meteo weather.
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
 
 Keep this section and the stage checkboxes below up to date as work lands.
@@ -81,17 +82,17 @@ Each stage lists what it delivers and when it counts as done. Tick items as they
 - [x] CI (typecheck, lint, build) and automatic backend deploy (OIDC → SSM)
 - [x] Frontend on Vercel, CORS configured
 
-### Stage 1: Data foundation (Sep 20)
+### Stage 1: Data foundation ✅ (Sep 19)
 Sites come from the OAH IG examples only (European OAH sites; no other regions).
-- [ ] Stream sites as `LocationOah`: Almyros, Giofyros (Crete, Greece) and Benevento (Italy) sites from the IG, with coordinates
-- [ ] Clinics as `Organization`, linked to the sites they serve
-- [ ] District cohorts as `GroupOah`
-- [ ] Baseline district health data as `ObservationHealthMeasureOah` (e.g. gastrointestinal prevalence), modelled on the IG's disease-prevalence example
-- [ ] Idempotent seed script (conditional create/update, safe to rerun), run on deploy
+- [x] Stream sites as `LocationOah`: Almyros, Giofyros (Crete, Greece) and Benevento (Italy) sites from the IG, with coordinates
+- [x] Clinics as `Organization`, linked to the sites they serve
+- [x] District cohorts as `GroupOah`
+- [x] Baseline district health data as `ObservationHealthMeasureOah` (e.g. gastrointestinal prevalence), modelled on the IG's disease-prevalence example
+- [x] Idempotent seed script (conditional create/update, safe to rerun), run on deploy
 - **Done when:** `/fhir/Location` returns the sites, and `POST /reports` for a seeded site returns 201.
 
 ### Stage 2: Citizen reporting (Sep 20)
-- [ ] `GET /sites` in the API for the frontend
+- [x] `GET /sites` in the API for the frontend
 - [ ] Report page: pick a site (list or nearest by GPS), indicator, value, optional note
 - [ ] Clear success state with a link to the created FHIR resource
 - **Done when:** a report submitted from a phone shows up in `/fhir/Observation`.
@@ -102,11 +103,11 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - [ ] Sites coloured by risk level (placeholder until Stage 4)
 - **Done when:** the map shows every seeded site with its latest readings.
 
-### Stage 4: Risk engine and alerts (Sep 22–23)
-- [ ] Open-Meteo client (last 7 days rainfall and temperature per site)
-- [ ] Rules from section 7, with reasons recorded for every decision
-- [ ] On a triggered rule: create `DetectedIssue` (evidence → triggering Observations) and `Communication` to the site's clinics
-- [ ] Re-evaluate a site whenever a new report arrives; avoid duplicate open alerts
+### Stage 4: Risk engine and alerts ✅ (Sep 19)
+- [x] Open-Meteo client (last 7 days rainfall and temperature per site)
+- [x] Rules from section 7, with reasons recorded for every decision
+- [x] On a triggered rule: create `DetectedIssue` (evidence → triggering Observations) and `Communication` to the site's clinics
+- [x] Re-evaluate a site whenever a new report arrives; avoid duplicate open alerts
 - **Done when:** submitting the demo scenario (algae + warm water + dry week) produces a `DetectedIssue` and a `Communication`.
 
 ### Stage 5: Clinician view (Sep 24)
