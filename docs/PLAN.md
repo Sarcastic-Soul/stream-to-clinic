@@ -7,12 +7,11 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 
 ## Current status
 
-- **Done:** Stages 0–6. Seed data, all API endpoints in [API.md](API.md), risk engine with FHIR alerts, and the map, report and clinician pages are live. The Sep 24 checkpoint is met early.
-  OAH profile validation runs in CI (51 resources from the real API code, 0 errors, 79 best-practice/terminology warnings).
-- **In progress:** Stage 7. Backend: alert narrative, photos (`Media` + `Binary`), FHIR rest-hook Subscription. Frontend: PWA, offline queue, photo capture, narrative view, accessibility pass.
-- **Next:** Stage 8 (README, submission text, demo video script).
-- **Demo note:** the algal-bloom rule needs a dry week. For the video, the API accepts an optional `WEATHER_OVERRIDE` env var (e.g. `{"rain24h":0,"rain7d":1.2}`); alert reasons then say "demo weather override". Production uses real Open-Meteo weather.
+- **Done:** Stages 0–6 and the Stage 7 features: installable PWA with offline report queue, report photos (`Media` + `Binary`), alert narrative, FHIR rest-hook Subscription, accessibility pass. Everything is live.
+- **Validation:** CI checks resources from the real API code against the OAH IG: 0 errors.
+- **Next:** Stage 7 bug-fix review, then Stage 8: README screenshots, final check of [SUBMISSION.md](SUBMISSION.md), demo video ([DEMO_SCRIPT.md](DEMO_SCRIPT.md)), Devpost submission (the last two need the user).
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
+- **Demo note:** the algal-bloom rule needs a dry week. For the video, the API accepts an optional `WEATHER_OVERRIDE` env var (e.g. `{"rain24h":0,"rain7d":1.2}`); alert reasons then say "demo weather override". Production uses real Open-Meteo weather.
 
 Keep this section and the stage checkboxes below up to date as work lands.
 
@@ -124,9 +123,9 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - **Done when:** CI fails if a mapping produces a resource that does not conform to the OAH profile.
 
 ### Stage 7: Polish and should-haves (Sep 26–27)
-- [ ] PWA manifest, installability, offline report queue
-- [ ] Accessibility pass
-- [ ] Should-haves in order: alert narrative, photos, FHIR Subscription
+- [x] PWA manifest, installability, offline report queue
+- [x] Accessibility pass (axe: 0 violations on all pages, light and dark)
+- [x] Should-haves in order: alert narrative, photos, FHIR Subscription
 - [ ] Realistic demo dataset and bug fixing
 
 ### Stage 8: Submission (Sep 28–30)
