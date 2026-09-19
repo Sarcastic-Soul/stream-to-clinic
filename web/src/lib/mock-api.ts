@@ -132,14 +132,15 @@ type Finding = Pick<AlertSummary, "risk" | "title" | "level" | "reasons" | "watc
 // Step-by-step account in the style of the API's risk engine narrative.
 function narrate(site: Site, finding: Finding, clinics: number): string[] {
   const weather = WEATHER[site.id];
+  const n = finding.reasons.length;
   return [
-    `Read the latest citizen reports for ${site.name}.`,
-    `Checked rainfall for the site: ${weather.rain24h} mm in the last 24 hours and ${weather.rain7d} mm over the last 7 days (demo weather).`,
-    ...finding.reasons.map((reason) => `Condition met: ${reason}`),
-    `All ${finding.reasons.length} conditions of the ${finding.title.toLowerCase()} rule were met, so the engine raised a ${finding.level} alert.`,
+    `Reviewed the citizen reports from ${site.name} in the last 7 days.`,
+    `Weather (demo data): ${weather.rain24h} mm of rain in the last 24 hours and ${weather.rain7d} mm in the last 7 days.`,
+    ...finding.reasons.map((reason, i) => `Check ${i + 1} of ${n} (met): ${reason}`),
+    `${n === 1 ? "The condition was" : `All ${n} conditions were`} met, so the engine raised "${finding.title}" at ${finding.level} level.`,
     finding.watchFor
-      ? `Sent a FHIR Communication to ${clinics === 1 ? "the clinic" : `${clinics} clinics`} serving this site.`
-      : "This is an environmental risk only, so no clinic was notified.",
+      ? `Notified ${clinics === 1 ? "1 clinic" : `${clinics} clinics`} serving this site.`
+      : "Environmental risk: no clinic notified.",
   ];
 }
 
