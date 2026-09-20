@@ -3,7 +3,8 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { toAckCommunication, toCommunication, toDetectedIssue } from "../api/src/alerts.js";
+import { toAckCommunication, toCommunication, toDetectedIssue, toAlertSummary } from "../api/src/alerts.js";
+import { toAdvisoryCommunication, toAdvisoryProvenance } from "../api/src/advisory.js";
 import { toSiteBundle } from "../api/src/bundle.js";
 import { toOahObservation } from "../api/src/mapping.js";
 import { buildNarrative } from "../api/src/narrative.js";
@@ -82,7 +83,22 @@ function alertResources(): fhir4.Resource[] {
     }),
     id: "alert-algal-bloom-acknowledgement",
   };
-  return [issue, communication, acknowledgement];
+  // The plain-language advisory drafted from that alert, and the lineage saying a model wrote it.
+  const summary = toAlertSummary(issue, new Map());
+  const advisory = {
+    ...toAdvisoryCommunication(
+      summary!,
+      "Citizen volunteers have reported abundant filamentous algae at the Almyros monitoring reach, in warm, dry weather.\n\nAsk anyone who has been in or near the water about skin irritation, rashes, or stomach upset over the past few days, and note when they were last in contact with the stream.\n\nYou can tell callers to keep out of the water and to keep children and dogs away from it until the algae clear.\n\nDemo heuristic, not clinical guidance.",
+      "gemini-sample",
+      NOW.toISOString(),
+    ),
+    id: "alert-algal-bloom-advisory",
+  };
+  const advisoryProvenance = {
+    ...toAdvisoryProvenance(advisory.id, summary!, "gemini-sample", NOW.toISOString()),
+    id: "advisory-provenance",
+  };
+  return [issue, communication, acknowledgement, advisory, advisoryProvenance];
 }
 
 // A report with a photo: the Binary, the Media pointing at it, and the Observation whose derivedFrom

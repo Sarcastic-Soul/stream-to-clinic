@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { ArrowLeftIcon, BotIcon, CircleCheckIcon, LeafIcon, StethoscopeIcon } from "lucide-react";
 import { Acknowledge } from "@/components/clinic/acknowledge";
+import { Advisory } from "@/components/clinic/advisory";
 import { FhirLink } from "@/components/fhir-link";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { useApi } from "@/hooks/use-api";
@@ -142,6 +143,8 @@ export function AlertDetail({ id }: { id: string }) {
               ))}
             </ul>
           </section>
+
+          <Advisory alert={alert} />
 
           <Acknowledge alert={alert} clinic={clinic} onAcknowledged={setResponded} />
 

@@ -2,6 +2,7 @@
 // safe to rerun and rebuilds everything after a database loss. Sites are the European monitoring
 // locations from the OAH IG examples; clinics, cohorts, baselines and history are synthetic
 // and tagged HTEST.
+import { advisorDevice } from "./advisory.js";
 import { config } from "./config.js";
 import { fhir } from "./fhir.js";
 import { toOahObservation } from "./mapping.js";
@@ -305,6 +306,7 @@ export function seedBundle(now = new Date()): fhir4.Bundle {
     ...cohorts(),
     ...baselines(now.getUTCFullYear() - 1),
     ...history(now),
+    tagged(advisorDevice(config.geminiModel)),
     subscription(),
   ];
   return {

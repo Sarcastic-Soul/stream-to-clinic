@@ -10,6 +10,7 @@ import { createWithPhoto, loadPhoto, parsePhoto } from "./photos.js";
 import { recordProvenance } from "./provenance.js";
 import { RecentIds } from "./recent.js";
 import { highestLevel } from "./rules.js";
+import { adviseOnAlert, advisoryEnabled, loadAdvisory } from "./advisory.js";
 import { clampDays, loadTrends, TREND_DAYS } from "./trends.js";
 import { seed } from "./seed.js";
 import { latestPerIndicator, loadClinics, loadSite, loadSites, siteObservations } from "./store.js";
@@ -41,7 +42,7 @@ app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: "Not found
 app.get("/health", async (_req, reply) => {
   try {
     const capabilities = await fhir.capabilities();
-    return { status: "ok", fhir: capabilities.fhirVersion };
+    return { status: "ok", fhir: capabilities.fhirVersion, advisory: advisoryEnabled() };
   } catch {
     return reply.code(503).send({ status: "degraded", fhir: "unreachable" });
   }
@@ -216,9 +217,21 @@ app.get<{ Params: { id: string } }>(
   { schema: ID_PARAMS },
   async (req, reply) => {
     const alert = await getAlert(req.params.id);
-    return alert ?? reply.code(404).send({ error: `Unknown alert ${req.params.id}` });
+    if (!alert) return reply.code(404).send({ error: `Unknown alert ${req.params.id}` });
+    const advisory = await loadAdvisory(alert.id).catch(() => undefined);
+    return { ...alert, ...(advisory ? { advisory } : {}) };
   },
 );
+
+// Rewrites an alert the rule engine already decided as a short notice for clinic staff. The model
+// is given the alert's own reasons and narrative and nothing else; it never changes the risk or
+// its level. The draft is stored as a FHIR Communication sent by a Device, with a Provenance
+// naming that Device as author, so machine-written text is marked as such wherever it is read.
+app.post<{ Params: { id: string } }>("/alerts/:id/advisory", { schema: ID_PARAMS }, async (req, reply) => {
+  const result = await adviseOnAlert(await getAlert(req.params.id));
+  if ("error" in result) return reply.code(result.status).send({ error: result.error });
+  return reply.code(201).send(result);
+});
 
 // A notified clinic reports back what it did. Closes the loop: the reply is a FHIR Communication
 // linked to the one we sent, so the environmental side can see which warnings led to action.

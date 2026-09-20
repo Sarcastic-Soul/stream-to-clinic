@@ -34,6 +34,7 @@ const MAPPING: { concept: string; resource: string; profile?: { name: string; fi
   { concept: "Health alert with its evidence and reasoning", resource: "DetectedIssue" },
   { concept: "Alert sent to a clinic", resource: "Communication" },
   { concept: "Clinic's reply: what it did about the alert", resource: "Communication (inResponseTo)" },
+  { concept: "Plain-language notice drafted by a model", resource: "Communication (sender Device) + Provenance" },
   { concept: "Trigger for observations from other systems", resource: "Subscription (rest-hook)" },
 ];
 
@@ -174,6 +175,12 @@ export default function StandardsPage() {
             FHIR server, where a clinic system can read them, for example with <Code>Communication?recipient=Organization/…</Code>.
             When a clinic answers, its reply is another <Code>Communication</Code> whose <Code>inResponseTo</Code> points at the
             one we sent, so the loop closes in standard resources rather than in a private status column.
+          </li>
+          <li>
+            A clinic can ask for the alert in plainer words. A language model rewrites the engine&apos;s own reasons — it is
+            given nothing else, and it changes no risk or level — and the draft is stored as a <Code>Communication</Code> whose{" "}
+            <Code>sender</Code> is a <Code>Device</Code>, with a <Code>Provenance</Code> naming that device as the author. Any
+            reader can tell machine-written text from a clinician&apos;s, which is the part that matters for governance.
           </li>
         </ol>
       </Section>

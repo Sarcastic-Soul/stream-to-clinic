@@ -88,6 +88,16 @@ interface Acknowledgement {
   fhirUrl: string;         // public /fhir URL
 }
 
+// A notice for clinic staff, drafted by a language model from an alert the rules already decided.
+// Stored as a Communication sent by a Device, with a Provenance naming that Device as author.
+interface Advisory {
+  id: string;              // FHIR Communication id
+  text: string;
+  model: string;           // model that drafted it
+  generatedAt: string;
+  fhirUrl: string;
+}
+
 // GET /trends: what weeks of reports add up to, per site and per region.
 type TrendDirection = "rising" | "falling" | "steady";
 
@@ -142,7 +152,7 @@ interface Trends {
 
 | Method | Path | Response |
 |---|---|---|
-| GET | `/health` | `{ status: "ok", fhir: "4.0.1" }` or 503 |
+| GET | `/health` | `{ status: "ok", fhir: "4.0.1", advisory: boolean }` (`advisory` says whether a model key is configured) or 503 |
 | GET | `/indicators` | `Indicator[]` |
 | GET | `/sites` | `SiteSummary[]` |
 | GET | `/sites/:id` | `SiteDetail` or 404 |
@@ -150,8 +160,9 @@ interface Trends {
 | POST | `/reports` | `201 { observation: ObservationSummary, fhirUrl: string, alerts: AlertSummary[] }` — `alerts` lists alerts raised or updated by this report. Also writes a FHIR `Provenance` naming the reporter as author and the app as assembler, targeting the `Observation` (and its photo `Media`); a failed lineage write is logged, never fatal |
 | GET | `/clinics` | `ClinicSummary[]` |
 | GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |
-| GET | `/alerts/:id` | `AlertSummary` (active or closed) or 404 |
+| GET | `/alerts/:id` | `AlertSummary` (active or closed), plus `advisory: Advisory` when one has been drafted, or 404 |
 | POST | `/alerts/:id/acknowledge` | `201 AlertSummary` — a notified clinic reports what it did. 404 for an unknown alert or clinic, 409 if that clinic was not notified about this alert |
+| POST | `/alerts/:id/advisory` | `201 Advisory` — rewrites the alert as a short notice for clinic staff. Returns the existing advisory if there is one, so the text cannot change under a clinic that has read it. 404 unknown alert, 503 if no model key is configured on the server, 502 if the model could not be reached |
 | GET | `/trends?days=` | `Trends` — `days` is an integer between 7 and 90, default 28. Counts citizen `Observation`s and active `DetectedIssue`s per site and per region, with a daily series and a direction per indicator, and the district health baselines alongside |
 | GET | `/photos/:id` | The photo bytes (`image/jpeg`, `image/png` or `image/webp`) or 404 |
 | PUT | `/hooks/observation/Observation/:id` | Internal: FHIR rest-hook target for the Observation Subscription (HAPI delivers each match as a PUT of the Observation); answers 204. Not reachable through the public proxy |

@@ -10,7 +10,7 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 - **Done:** Stages 0–7, and the Stage 8 documents (README, SUBMISSION.md, DEMO_SCRIPT.md). Installable PWA with offline report queue, report photos (`Media` + `Binary`), alert narrative, FHIR rest-hook Subscription, accessibility pass, code-review fixes. Everything is live.
 - **Validation:** CI checks resources from the real API code against the OAH IG: 0 errors.
 - **Next (user):** record the demo video from [DEMO_SCRIPT.md](DEMO_SCRIPT.md), add its link to [SUBMISSION.md](SUBMISSION.md), submit on Devpost before Sep 30, 9:00 PM PDT.
-- **Also done:** site FHIR `Bundle` export, a `/standards` page for judges, a UI pass on the map, themes and colours, `Provenance` lineage on every citizen report, clinic acknowledgements that close the One Health loop, Greek/Italian for the citizen surface, and the catchment trend view (Stage 7).
+- **Also done:** site FHIR `Bundle` export, a `/standards` page for judges, a UI pass on the map, themes and colours, `Provenance` lineage on every citizen report, clinic acknowledgements that close the One Health loop, Greek/Italian for the citizen surface, the catchment trend view, a model-drafted clinic notice with its own `Provenance`, and Playwright journey tests in CI (Stage 7).
 - **Optional if time remains:** SMART on FHIR launch; review leftovers: alert reason dates in UTC, 200-item cap on alert/communication lists.
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
 - **Demo note:** the algal-bloom rule needs a dry week. For the video, the API accepts an optional `WEATHER_OVERRIDE` env var (e.g. `{"rain24h":0,"rain7d":1.2}`); alert reasons then say "demo weather override". Production uses real Open-Meteo weather.
@@ -136,6 +136,8 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - [x] Greek and Italian for the citizen surface (report flow, navigation, map sidebar), with a language toggle; clinician pages stay English
 - [x] `Provenance` for every citizen report: who reported it, which app assembled it, when it was recorded
 - [x] Closing the loop: a notified clinic answers an alert (`POST /alerts/:id/acknowledge`), stored as a FHIR `Communication` with `inResponseTo`, shown on the alert and marked "Answered" in the clinic list
+- [x] Plain-language advisory: a model rewrites an alert for clinic staff from the engine's own reasons, stored as a `Communication` sent by a `Device` with a `Provenance` naming it as the author; dormant unless `GEMINI_API_KEY` is set on the host
+- [x] Journey tests: the report, the clinic reply, the advisory, the trends and the map run in CI on every push (Playwright against the in-browser mock)
 - [x] Catchment trends (`GET /trends`, `/trends` page): four weeks of reports per site and per region, a direction per indicator, the district health baselines alongside, and how many active alerts a clinic has answered
 
 ### Stage 8: Submission (Sep 28–30)

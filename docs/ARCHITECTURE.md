@@ -49,6 +49,8 @@ HAPI ── rest-hook Subscription (internal network) ──► API /hooks/obser
 | FHIR server | HAPI FHIR JPA Server Starter | 8.12.0 (`hapiproject/hapi:v8.12.0-1`) | FHIR R4, rest-hook subscriptions enabled |
 | Database | PostgreSQL | 18 (alpine) | Local to the host; HAPI keeps connections open, which rules out scale-to-zero hosted DBs |
 | Reverse proxy / TLS | Caddy | 2.x | Automatic HTTPS; one site file per project |
+| Advisory model | Google Gemini API (`GEMINI_API_KEY`, default model `gemini-3.5-flash-lite`) | — | Free tier from Google AI Studio; the key lives in the server env file, never in the repo. Optional: with no key the endpoint answers 503 and everything else is unchanged. The model is given one alert's own reasons and narrative and asked to rewrite them; it never sets or changes a risk level. Its output is stored as a `Communication` sent by a `Device`, with a `Provenance` naming that device as author |
+| Browser tests | Playwright | 1.63 | Five journeys (report, clinic reply, advisory, trends, map) run in CI against a build with `NEXT_PUBLIC_API_MOCK=1`, so they never depend on the deployed API |
 | Weather | Open-Meteo API | — | Free for non-commercial use, no key; CC BY 4.0 attribution ("Weather data by Open-Meteo.com"). Hourly rainfall, cached 1 h per site |
 | Validation (planned) | SUSHI + HL7 `validator_cli` | validator 6.10.x | Builds the OAH IG from source and validates resources in CI |
 | Host OS | Ubuntu Server | 24.04 LTS (arm64) | |

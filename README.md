@@ -54,6 +54,8 @@ Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-h
 | 🌍 **Speaks the local language** | English, Greek and Italian on the citizen screens — the languages of the pilot sites, not just the developers' |
 | 📈 **From one report to a pattern** | A four-week catchment view: which stream is warming, losing oxygen or rising in conductivity, per site and per region, next to the district's disease baseline |
 | 🔁 **Closed loop** | Clinics answer an alert in one click; the reply is a FHIR `Communication` linked to the original, so the environmental side sees which warnings led to action |
+| ✍️ **AI that only writes, never decides** | A model rewrites an alert as a notice for the clinic desk, from the engine's own reasons; the draft is a `Communication` sent by a `Device` with a `Provenance` naming it, so machine-written text stays marked as such |
+| ✍️ **AI that writes, never decides** | A model rewrites an alert as a notice for the clinic desk, from the engine's own reasons only; the draft is a `Communication` sent by a `Device` with a `Provenance` naming it, so machine-written text stays marked as such |
 | 🧾 **Traceable** | Every citizen report carries a `Provenance`: who reported it, which app assembled it, when it was recorded |
 | 🗺️ **Readable map** | Colourful basemap, place names in one language, quieter country labels, nearby sites clustered with a count |
 | 🌓 **Light / dark / system** | Theme toggle applied before the first paint, no flash |

@@ -47,6 +47,19 @@ test("a notified clinic answers an alert and the list shows it answered", async 
   await expect(page.getByText("Answered").first()).toBeVisible();
 });
 
+test("an alert can be rewritten as a notice for the clinic desk", async ({ page }) => {
+  await page.goto("/clinic?clinic=clinic-heraklion-west");
+  await page.getByRole("link", { name: /Possible algal bloom/ }).first().click();
+
+  const advisory = page.getByRole("region", { name: "Notice for the clinic desk" });
+  await expect(advisory.getByText(/cannot change the risk or its level/)).toBeVisible();
+  await advisory.getByRole("button", { name: "Draft the notice" }).click();
+
+  // The draft names the model that wrote it and links the Communication it is stored as.
+  await expect(advisory.getByText(/Drafted by demo-model/)).toBeVisible();
+  await expect(advisory.getByText("Demo heuristic, not clinical guidance.")).toBeVisible();
+});
+
 test("the trend view rolls weeks of reports up by site and region", async ({ page }) => {
   await page.goto("/trends");
 

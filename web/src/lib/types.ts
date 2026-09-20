@@ -69,6 +69,15 @@ export interface AcknowledgeInput {
   note?: string;
 }
 
+// Machine-written notice for clinic staff, stored as a Communication sent by a Device.
+export interface Advisory {
+  id: string;
+  text: string;
+  model: string;
+  generatedAt: string;
+  fhirUrl: string;
+}
+
 export interface AlertSummary {
   id: string;
   risk: RiskKind;
@@ -87,6 +96,8 @@ export interface AlertSummary {
   evidence: string[];
   // Optional here so alerts fetched before this existed still render.
   acknowledgements?: Acknowledgement[];
+  // Present once a notice has been drafted for this alert (GET /alerts/:id only).
+  advisory?: Advisory;
   fhir: { detectedIssue: string; communications: string[] };
 }
 
@@ -197,4 +208,5 @@ export interface Api {
   getAlert(id: string): Promise<AlertSummary>;
   acknowledgeAlert(id: string, input: AcknowledgeInput): Promise<AlertSummary>;
   getTrends(days?: number): Promise<Trends>;
+  requestAdvisory(id: string): Promise<Advisory>;
 }

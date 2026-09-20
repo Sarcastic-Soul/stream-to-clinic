@@ -5,6 +5,7 @@ import { ApiError, FHIR_URL } from "./api";
 import { ACK_ACTIONS } from "./format";
 import type {
   Acknowledgement,
+  Advisory,
   AlertSummary,
   Api,
   ClinicSummary,
@@ -404,7 +405,35 @@ export const mockApi: Api = {
       return updated;
     }, 400),
   getTrends: (days = 28) => run(() => trends(days)),
+  requestAdvisory: (id) =>
+    run(() => {
+      const alert = alerts.find((a) => a.id === id);
+      if (!alert) throw new ApiError(`Unknown alert: ${id}`, 404);
+      const advisory: Advisory = {
+        id: newId("advisory"),
+        text: mockAdvisoryText(alert),
+        model: "demo-model (offline mock)",
+        generatedAt: new Date().toISOString(),
+        fhirUrl: `${FHIR_URL}/Communication/${newId("advisory")}`,
+      };
+      alerts = alerts.map((a) => (a.id === id ? { ...a, advisory } : a));
+      return advisory;
+    }, 700),
 };
+
+// Stand-in for the language model: the same shape of text, assembled from the alert's own reasons
+// so the offline demo shows the panel without a key or a network call.
+function mockAdvisoryText(alert: AlertSummary): string {
+  const reason = alert.reasons[0] ?? `${alert.title} at ${alert.siteName}.`;
+  return [
+    `${reason} The risk is rated ${alert.level} for ${alert.siteName}.`,
+    alert.watchFor
+      ? `Ask anyone who has been in or near the water about the symptoms above, and note when they were last in contact with the stream.`
+      : `No patient action is needed: this is an environmental alert about the stream itself.`,
+    `You can tell people who ask to keep out of the water until the conditions change.`,
+    "Demo heuristic, not clinical guidance.",
+  ].join("\n");
+}
 
 // The mock's own history is only a week long, so the trend it returns is a short one; the shape
 // matches GET /trends exactly.
