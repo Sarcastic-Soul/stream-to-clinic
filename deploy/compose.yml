@@ -41,6 +41,8 @@ services:
       FHIR_BASE_URL: http://hapi:8080/fhir
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       WEATHER_OVERRIDE: ${WEATHER_OVERRIDE:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
     mem_limit: 256m
     networks: [internal, web]
 

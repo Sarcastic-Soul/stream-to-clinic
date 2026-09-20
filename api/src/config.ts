@@ -23,7 +23,7 @@ export const config = {
   // Optional: key for the plain-language advisory (Google AI Studio free tier). Unset on a server
   // means the advisory endpoint answers 503 and everything else works as before.
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL ?? "gemini-3.5-flash-lite",
+  geminiModel: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3000")
     .split(",")
     .map((origin) => origin.trim())
