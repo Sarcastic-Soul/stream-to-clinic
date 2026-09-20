@@ -1,15 +1,25 @@
 import { SerwistProvider } from "@serwist/turbopack/react";
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Sans } from "next/font/google";
 import { ReportQueueBanner } from "@/components/report-queue-banner";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { LOCALE_SCRIPT } from "@/lib/i18n";
 import { THEME_COLOR, THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+});
+
+// Geist has no Greek subset, so Greek gets Noto Sans instead (see globals.css).
+// Not preloaded: only readers who switch to Greek pay for it.
+const notoSansGreek = Noto_Sans({
+  variable: "--font-noto-greek",
+  subsets: ["greek", "latin"],
+  display: "swap",
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
@@ -35,11 +45,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-theme="light"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${notoSansGreek.variable} h-full antialiased`}
     >
       <head>
-        {/* Applies the saved theme while the HTML is parsed, before the first paint. */}
+        {/* Applies the saved theme and language while the HTML is parsed, before the first paint. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: LOCALE_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
         {/* No reload when the connection returns: the report queue flushes in place instead. */}

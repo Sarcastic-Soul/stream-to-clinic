@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CircleCheckIcon, ExternalLinkIcon } from "lucide-react";
 import { AlertCard } from "@/components/alert-card";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useTranslate } from "@/hooks/use-locale";
 import { formatDateTime, formatValue } from "@/lib/format";
 import type { Indicator, ReportResult, SiteSummary } from "@/lib/types";
 
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function ReportSuccess({ report, site, indicator, onReportAnother }: Props) {
+  const t = useTranslate();
   const { observation, fhirUrl, alerts } = report;
   const clinicAlerts = alerts.filter((a) => a.watchFor !== "").length;
 
@@ -28,29 +30,29 @@ export function ReportSuccess({ report, site, indicator, onReportAnother }: Prop
           className="flex items-center gap-2 text-xl font-semibold outline-none"
         >
           <CircleCheckIcon className="size-6 text-green-600 dark:text-green-400" aria-hidden />
-          Report saved
+          {t("report.saved")}
         </h2>
-        <p className="text-muted-foreground">Thank you, {observation.reporter}. Your observation is now a standard FHIR resource.</p>
+        <p className="text-muted-foreground">{t("report.thanks", { name: observation.reporter })}</p>
       </div>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border p-4 text-sm">
-        <dt className="text-muted-foreground">Site</dt>
+        <dt className="text-muted-foreground">{t("report.site")}</dt>
         <dd className="font-medium">
           {site.name} · {site.waterBody}
         </dd>
         <dt className="text-muted-foreground">{indicator?.display ?? observation.indicator}</dt>
         <dd className="font-medium">{formatValue(observation, indicator)}</dd>
-        <dt className="text-muted-foreground">Observed</dt>
+        <dt className="text-muted-foreground">{t("report.observedAt")}</dt>
         <dd>
           <time dateTime={observation.observedAt}>{formatDateTime(observation.observedAt)}</time>
         </dd>
         {observation.photoUrl && (
           <>
-            <dt className="text-muted-foreground">Photo</dt>
+            <dt className="text-muted-foreground">{t("report.photo")}</dt>
             <dd>
               <Image
                 src={observation.photoUrl}
-                alt={`Photo attached to this ${indicator?.display.toLowerCase() ?? "observation"} report`}
+                alt={t("report.photoAlt")}
                 width={160}
                 height={120}
                 unoptimized
@@ -60,7 +62,7 @@ export function ReportSuccess({ report, site, indicator, onReportAnother }: Prop
             </dd>
           </>
         )}
-        <dt className="text-muted-foreground">FHIR</dt>
+        <dt className="text-muted-foreground">{t("report.fhir")}</dt>
         <dd>
           <a href={fhirUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
             Observation/{observation.id}
@@ -73,9 +75,9 @@ export function ReportSuccess({ report, site, indicator, onReportAnother }: Prop
       {alerts.length > 0 && (
         <section aria-labelledby="raised-heading" className="space-y-2">
           <h3 id="raised-heading" className="font-medium">
-            {alerts.length === 1 ? "This report raised an alert" : `This report raised ${alerts.length} alerts`}
+            {alerts.length === 1 ? t("report.raisedOne") : t("report.raisedMany", { count: alerts.length })}
           </h3>
-          {clinicAlerts > 0 && <p className="text-sm text-muted-foreground">Clinics serving this site have been notified.</p>}
+          {clinicAlerts > 0 && <p className="text-sm text-muted-foreground">{t("report.notified")}</p>}
           {alerts.map((alert) => (
             <AlertCard key={alert.id} alert={alert} showSite={false} />
           ))}
@@ -84,10 +86,10 @@ export function ReportSuccess({ report, site, indicator, onReportAnother }: Prop
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button size="lg" className="h-11 sm:flex-1" onClick={onReportAnother}>
-          Report another
+          {t("report.another")}
         </Button>
         <Link href={`/?site=${encodeURIComponent(site.id)}`} className={buttonVariants({ variant: "outline", size: "lg", className: "h-11 sm:flex-1" })}>
-          See site on the map
+          {t("report.seeOnMap")}
         </Link>
       </div>
     </div>

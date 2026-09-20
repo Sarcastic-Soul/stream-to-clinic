@@ -1,4 +1,5 @@
-import type { AckAction, Indicator, ObservationSummary, RiskLevel } from "./types";
+import type { Translate } from "./i18n";
+import type { AckAction, Indicator, ObservationSummary, Presence, RiskLevel } from "./types";
 
 export const RISK: Record<RiskLevel, { label: string; color: string; badge: string }> = {
   none: {
@@ -34,6 +35,18 @@ export const ACK_ACTIONS: Record<AckAction, string> = {
 };
 
 export const ACK_ACTION_IDS = Object.keys(ACK_ACTIONS) as AckAction[];
+
+// Indicator names come from the API in English. The citizen-facing screens show the translated
+// name where one exists and fall back to what the API said, so a new indicator still renders.
+export function indicatorLabel(t: Translate, indicator: Pick<Indicator, "id" | "display">): string {
+  const key = `indicator.${indicator.id}` as Parameters<Translate>[0];
+  const translated = t(key);
+  return translated === key ? indicator.display : translated;
+}
+
+export function presenceLabel(t: Translate, presence: Presence): string {
+  return t(`presence.${presence}` as Parameters<Translate>[0]);
+}
 
 // Unit to print after a value; "" for dimensionless indicators (pH), whose name already says it.
 export function unitLabel(indicator: Pick<Indicator, "unit" | "unitLabel"> | undefined, fallback?: string): string {

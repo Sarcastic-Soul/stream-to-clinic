@@ -13,6 +13,7 @@ import MapGL, {
   type ViewStateChangeEvent,
 } from "react-map-gl/maplibre";
 import { MaximizeIcon } from "lucide-react";
+import { useTranslate } from "@/hooks/use-locale";
 import { RISK } from "@/lib/format";
 import type { SiteSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ interface Props {
 
 // Client-only: loaded with next/dynamic and ssr: false because MapLibre needs the browser.
 export default function SiteMap({ sites, selectedId, onSelect }: Props) {
+  const t = useTranslate();
   const [map, setMap] = useState<MapRef | null>(null);
   // Clustering depends on scale only, so the markers are recomputed on zoom, not on every pan frame.
   const [zoom, setZoom] = useState<number | null>(null);
@@ -110,7 +112,7 @@ export default function SiteMap({ sites, selectedId, onSelect }: Props) {
           className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white/90 px-2 py-1.5 text-xs font-medium text-slate-900 shadow-sm backdrop-blur transition-colors hover:bg-white focus-visible:ring-3 focus-visible:ring-sky-500/50 focus-visible:outline-none"
         >
           <MaximizeIcon className="size-3.5" aria-hidden />
-          All sites
+          {t("map.allSites")}
         </button>
       )}
 

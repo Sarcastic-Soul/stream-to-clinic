@@ -138,6 +138,10 @@
   [data-theme="dark"] {
     color-scheme: dark;
   }
+  /* Geist covers latin only; Greek text falls back to Noto Sans. */
+  :root[lang="el"] {
+    --font-sans: var(--font-noto-greek), var(--font-geist-sans);
+  }
 }
 
 /* Respect the OS "reduce motion" setting everywhere (skeleton pulse, spinners, transitions). */

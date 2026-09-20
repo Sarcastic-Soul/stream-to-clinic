@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, type ChangeEvent } from "react";
 import { CameraIcon, LoaderCircleIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslate } from "@/hooks/use-locale";
 import { downscalePhoto } from "@/lib/photo";
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 
 // Camera or gallery picker. The file input stays native (and keyboard reachable); the label is styled as the button.
 export function PhotoField({ value, onChange }: Props) {
+  const t = useTranslate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +27,7 @@ export function PhotoField({ value, onChange }: Props) {
     try {
       onChange(await downscalePhoto(file));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "This photo could not be added.");
+      setError(err instanceof Error ? err.message : t("photo.addFailed"));
     } finally {
       setBusy(false);
     }
@@ -34,13 +36,13 @@ export function PhotoField({ value, onChange }: Props) {
   return (
     <div className="space-y-2">
       <p id="photo-label" className="text-sm font-medium">
-        Photo <span className="font-normal text-muted-foreground">(optional)</span>
+        {t("photo.label")} <span className="font-normal text-muted-foreground">{t("report.optional")}</span>
       </p>
       {value ? (
         <div className="flex items-start gap-3">
           <Image
             src={value}
-            alt="Preview of the photo attached to this report"
+            alt={t("photo.previewAlt")}
             width={160}
             height={120}
             unoptimized
@@ -48,7 +50,7 @@ export function PhotoField({ value, onChange }: Props) {
           />
           <Button type="button" variant="outline" onClick={() => onChange(null)}>
             <XIcon data-icon="inline-start" />
-            Remove photo
+            {t("photo.remove")}
           </Button>
         </div>
       ) : (
@@ -64,11 +66,11 @@ export function PhotoField({ value, onChange }: Props) {
             className="sr-only"
           />
           {busy ? <LoaderCircleIcon className="size-4 animate-spin" aria-hidden /> : <CameraIcon className="size-4" aria-hidden />}
-          {busy ? "Preparing photo…" : "Add photo"}
+          {busy ? t("photo.preparing") : t("photo.add")}
         </label>
       )}
       <p id="photo-hint" className="text-sm text-muted-foreground">
-        Please don&apos;t photograph people. Photos are public with your report.
+        {t("photo.noPeople")}
       </p>
       <p className="text-sm text-destructive" role="alert">
         {error}

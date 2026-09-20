@@ -11,8 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useApi } from "@/hooks/use-api";
+import { useTranslate } from "@/hooks/use-locale";
 import { api } from "@/lib/api";
-import { distanceKm, unitLabel } from "@/lib/format";
+import { distanceKm, indicatorLabel, presenceLabel, unitLabel } from "@/lib/format";
 import { QUEUE_EVENT, enqueueReport, isNetworkError, listQueued, type QueuedReport } from "@/lib/report-queue";
 import { readStored, writeStored } from "@/lib/storage";
 import type { Presence, ReportInput, ReportResult, SiteSummary } from "@/lib/types";
@@ -26,15 +27,12 @@ function prefillReporter(input: HTMLInputElement | null) {
   if (input && !input.value) input.value = readStored(REPORTER_KEY) ?? "";
 }
 
-const PRESENCE_OPTIONS: { value: Presence; label: string }[] = [
-  { value: "absent", label: "Absent" },
-  { value: "present", label: "Present" },
-  { value: "abundant", label: "Abundant" },
-];
+const PRESENCE_VALUES: Presence[] = ["absent", "present", "abundant"];
 
 type Locate = { state: "idle" } | { state: "locating" } | { state: "error"; message: string } | { state: "found"; km: number };
 
 export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
+  const t = useTranslate();
   const sites = useApi(api.getSites);
   const indicators = useApi(api.getIndicators);
 
@@ -69,7 +67,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
 
   function findNearest() {
     if (!("geolocation" in navigator)) {
-      setLocate({ state: "error", message: "Location is not available in this browser." });
+      setLocate({ state: "error", message: t("report.noGeolocation") });
       return;
     }
     setLocate({ state: "locating" });
@@ -79,14 +77,14 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
         const nearest = (sites.data ?? [])
           .map((s) => ({ site: s, km: distanceKm(here, s) }))
           .sort((a, b) => a.km - b.km)[0];
-        if (!nearest) return setLocate({ state: "error", message: "No sites to choose from yet." });
+        if (!nearest) return setLocate({ state: "error", message: t("report.noSites") });
         setSiteId(nearest.site.id);
         setLocate({ state: "found", km: nearest.km });
       },
       (err) =>
         setLocate({
           state: "error",
-          message: err.code === err.PERMISSION_DENIED ? "Location permission was denied. Pick a site from the list." : "Could not find your location. Pick a site from the list.",
+          message: err.code === err.PERMISSION_DENIED ? t("report.permissionDenied") : t("report.locateFailed"),
         }),
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
@@ -99,20 +97,29 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
     const reporter = String(form.get("reporter") ?? "").trim();
     const note = String(form.get("note") ?? "").trim();
 
-    if (!site) return setError("Choose a site.");
-    if (!indicator) return setError("Choose what you observed.");
+    if (!site) return setError(t("report.errorSite"));
+    if (!indicator) return setError(t("report.errorIndicator"));
     let value: number | Presence;
     if (indicator.kind === "quantity") {
       value = Number(quantity);
-      if (quantity.trim() === "" || !Number.isFinite(value)) return setError(`Enter a number for ${indicator.display.toLowerCase()}.`);
+      if (quantity.trim() === "" || !Number.isFinite(value)) {
+        return setError(t("report.errorNumber", { indicator: indicatorLabel(t, indicator).toLowerCase() }));
+      }
       if ((indicator.min !== undefined && value < indicator.min) || (indicator.max !== undefined && value > indicator.max)) {
-        return setError(`${indicator.display} must be between ${indicator.min} and ${indicator.max}${unitLabel(indicator) && ` ${unitLabel(indicator)}`}.`);
+        return setError(
+          t("report.errorRange", {
+            indicator: indicatorLabel(t, indicator),
+            min: indicator.min!,
+            max: indicator.max!,
+            unit: unitLabel(indicator) ? ` ${unitLabel(indicator)}` : "",
+          }),
+        );
       }
     } else {
-      if (!presence) return setError(`Choose whether ${indicator.display.toLowerCase()} is absent, present or abundant.`);
+      if (!presence) return setError(t("report.errorPresence", { indicator: indicatorLabel(t, indicator).toLowerCase() }));
       value = presence;
     }
-    if (!reporter) return setError("Enter your name so others know who reported this.");
+    if (!reporter) return setError(t("report.errorName"));
 
     const input: ReportInput = {
       siteId: site.id,
@@ -126,9 +133,9 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
     // Without a connection the report waits on the device and is sent later (see ReportQueueBanner).
     const queue = async () => {
       try {
-        setQueued(await enqueueReport({ input, siteName: site.name, indicatorDisplay: indicator.display }));
+        setQueued(await enqueueReport({ input, siteName: site.name, indicatorDisplay: indicatorLabel(t, indicator) }));
       } catch {
-        setError("You appear to be offline, and this browser cannot store the report for later. Try again when you are back online.");
+        setError(t("report.errorNoStore"));
       }
     };
 
@@ -139,7 +146,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
       else setResult({ report: await api.createReport(input), site });
     } catch (err) {
       if (isNetworkError(err)) await queue();
-      else setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      else setError(err instanceof Error ? err.message : t("report.errorGeneric"));
     } finally {
       setSubmitting(false);
     }
@@ -164,16 +171,17 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
             ) : (
               <CloudOffIcon className="size-6 text-amber-600 dark:text-amber-400" aria-hidden />
             )}
-            {queuedSent ? "Queued report sent" : "Queued, will send when online"}
+            {queuedSent ? t("report.queuedSent") : t("report.queuedWaiting")}
           </h2>
           <p className="text-muted-foreground">
-            {queuedSent
-              ? `Your ${queued.indicatorDisplay.toLowerCase()} report for ${queued.siteName} has reached the server. See the banner above for its FHIR record.`
-              : `Your ${queued.indicatorDisplay.toLowerCase()} report for ${queued.siteName} is saved on this device. It will be sent automatically when you are back online, as long as this app is open.`}
+            {t(queuedSent ? "report.queuedSentBody" : "report.queuedWaitingBody", {
+              indicator: queued.indicatorDisplay.toLowerCase(),
+              site: queued.siteName,
+            })}
           </p>
         </div>
         <Button size="lg" className="h-11 w-full" onClick={reportAnother}>
-          Report another
+          {t("report.another")}
         </Button>
       </div>
     );
@@ -191,12 +199,12 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
   }
 
   if (sites.error || indicators.error) return <LoadError error={(sites.error ?? indicators.error)!} what="the report form" />;
-  if (!sites.data || !indicators.data) return <LoadingRows rows={4} label="Loading report form" />;
+  if (!sites.data || !indicators.data) return <LoadingRows rows={4} label={t("report.loading")} />;
 
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="site">Site</Label>
+        <Label htmlFor="site">{t("report.site")}</Label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Select
             items={sites.data.map((s) => ({ value: s.id, label: `${s.name} · ${s.waterBody}` }))}
@@ -207,7 +215,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
             }}
           >
             <SelectTrigger id="site" className="h-11 w-full sm:flex-1">
-              <SelectValue placeholder="Choose a site" />
+              <SelectValue placeholder={t("report.chooseSite")} />
             </SelectTrigger>
             <SelectContent>
               {sites.data.map((s) => (
@@ -223,23 +231,23 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
             ) : (
               <LocateFixedIcon data-icon="inline-start" />
             )}
-            Nearest to me
+            {t("report.nearest")}
           </Button>
         </div>
         <p className="text-sm text-muted-foreground" aria-live="polite">
-          {locate.state === "found" && site && `Nearest site: ${site.name}, ${locate.km.toFixed(1)} km away.`}
+          {locate.state === "found" && site && t("report.nearestFound", { site: site.name, km: locate.km.toFixed(1) })}
           {locate.state === "error" && locate.message}
           {locate.state !== "found" && locate.state !== "error" && site && site.region}
         </p>
       </div>
 
       <ChoiceGroup
-        legend="What did you observe?"
+        legend={t("report.observed")}
         name="indicator"
         options={indicators.data.map((i) => ({
           value: i.id,
-          label: i.display,
-          hint: i.kind === "presence" ? "Seen by eye" : unitLabel(i) ? `Measured in ${unitLabel(i)}` : "Measured",
+          label: indicatorLabel(t, i),
+          hint: i.kind === "presence" ? t("report.seenByEye") : unitLabel(i) ? t("report.measuredIn", { unit: unitLabel(i) }) : t("report.measured"),
         }))}
         value={indicatorId}
         onChange={chooseIndicator}
@@ -247,7 +255,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
 
       {indicator?.kind === "quantity" && (
         <div className="space-y-2">
-          <Label htmlFor="value">{indicator.display}</Label>
+          <Label htmlFor="value">{indicatorLabel(t, indicator)}</Label>
           <div className="flex items-center gap-2">
             <Input
               id="value"
@@ -266,7 +274,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
           </div>
           {indicator.min !== undefined && indicator.max !== undefined && (
             <p id="value-hint" className="text-sm text-muted-foreground">
-              Between {indicator.min} and {indicator.max}{unitLabel(indicator) && ` ${unitLabel(indicator)}`}.
+              {t("report.between", { min: indicator.min, max: indicator.max, unit: unitLabel(indicator) ? ` ${unitLabel(indicator)}` : "" })}
             </p>
           )}
         </div>
@@ -274,9 +282,9 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
 
       {indicator?.kind === "presence" && (
         <ChoiceGroup
-          legend={`How much ${indicator.display.toLowerCase()}?`}
+          legend={t("report.howMuch", { indicator: indicatorLabel(t, indicator).toLowerCase() })}
           name="presence"
-          options={PRESENCE_OPTIONS}
+          options={PRESENCE_VALUES.map((value) => ({ value, label: presenceLabel(t, value) }))}
           value={presence}
           onChange={setPresence}
           columns="grid-cols-3"
@@ -284,7 +292,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="reporter">Your name</Label>
+        <Label htmlFor="reporter">{t("report.yourName")}</Label>
         <Input
           id="reporter"
           name="reporter"
@@ -295,7 +303,7 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
           aria-describedby="reporter-hint"
         />
         <p id="reporter-hint" className="text-sm text-muted-foreground">
-          Shown with your report and remembered on this device.
+          {t("report.nameHint")}
         </p>
       </div>
 
@@ -303,22 +311,22 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
 
       <div className="space-y-2">
         <Label htmlFor="note">
-          Note <span className="font-normal text-muted-foreground">(optional)</span>
+          {t("report.note")} <span className="font-normal text-muted-foreground">{t("report.optional")}</span>
         </Label>
-        <Textarea id="note" name="note" maxLength={1000} rows={3} placeholder="Smell, colour, dead fish, anything unusual" className="text-base" />
+        <Textarea id="note" name="note" maxLength={1000} rows={3} placeholder={t("report.notePlaceholder")} className="text-base" />
       </div>
 
       {error && (
         <Alert variant="destructive" role="alert">
           <CircleAlertIcon />
-          <AlertTitle>Report not sent</AlertTitle>
+          <AlertTitle>{t("report.notSent")}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={submitting}>
         {submitting && <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />}
-        {submitting ? "Sending…" : "Send report"}
+        {submitting ? t("report.sending") : t("report.send")}
       </Button>
     </form>
   );

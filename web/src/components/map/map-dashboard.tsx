@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApi } from "@/hooks/use-api";
+import { useTranslate } from "@/hooks/use-locale";
 import { api } from "@/lib/api";
 import { RISK, RISK_LEVELS } from "@/lib/format";
 import type { RiskLevel, SiteSummary } from "@/lib/types";
@@ -16,6 +17,7 @@ const SiteMap = dynamic(() => import("./site-map"), {
 });
 
 export function MapDashboard() {
+  const t = useTranslate();
   const router = useRouter();
   const selectedId = useSearchParams().get("site");
   const sites = useApi(api.getSites);
@@ -41,11 +43,8 @@ export function MapDashboard() {
         ) : (
           <div className="space-y-4 p-4">
             <div className="space-y-1">
-              <h1 className="text-xl font-semibold">Stream sites</h1>
-              <p className="text-sm text-muted-foreground">
-                Citizen observations from OneAquaHealth sites. Pick a site on the map or in the list to see its readings
-                and alerts.
-              </p>
+              <h1 className="text-xl font-semibold">{t("map.title")}</h1>
+              <p className="text-sm text-muted-foreground">{t("map.intro")}</p>
             </div>
             {sites.loading && <LoadingRows rows={4} label="Loading sites" />}
             {sites.error && <LoadError error={sites.error} what="sites" />}
@@ -89,11 +88,12 @@ function SiteList({ sites, onSelect }: { sites: SiteSummary[]; onSelect: (id: st
 
 // Doubles as a summary: how many sites sit at each risk level right now.
 function Legend({ sites }: { sites: SiteSummary[] }) {
+  const t = useTranslate();
   const count = (level: RiskLevel) => sites.filter((s) => s.riskLevel === level).length;
   return (
     // bottom-9 on phones keeps it off the full-width map attribution bar.
     <div className="pointer-events-none absolute bottom-9 left-2 rounded-lg border border-slate-300 bg-white/90 p-2 text-xs text-slate-900 shadow-sm backdrop-blur sm:bottom-2">
-      <p className="mb-1 font-medium">Sites by risk</p>
+      <p className="mb-1 font-medium">{t("map.byRisk")}</p>
       <ul className="flex gap-2.5 sm:block sm:space-y-0.5">
         {RISK_LEVELS.map((level) => (
           <li key={level} className="flex items-center gap-1.5">
