@@ -105,7 +105,7 @@ const HISTORY: Record<
     ranges: { waterTemperature: [21, 23.5], pH: [7.2, 7.7], dissolvedO2: [4.2, 5.2], conductivity: [950, 1200] },
     seen: { foam: 0.1, filamentousAlgae: 0, diptera: 0.5 },
     // The reach warms and loses oxygen over the window: the trend view shows where to look first.
-    drift: { dissolvedO2: -1.2, waterTemperature: 1.4, conductivity: 180 },
+    drift: { dissolvedO2: -1.8, waterTemperature: 2, conductivity: 400 },
     latest: { dissolvedO2: 3.7 }, // the newest reading, low enough for an environmental alert
   },
   "Loc-Benevento": {
