@@ -1,12 +1,13 @@
 import cors from "@fastify/cors";
 import Fastify, { type FastifyError } from "fastify";
-import { evaluateSite, getAlert, listAlerts, scheduleEvaluation } from "./alerts.js";
+import { ACK_ACTION_IDS, acknowledgeAlert, evaluateSite, getAlert, listAlerts, scheduleEvaluation, type AckAction } from "./alerts.js";
 import { loadSiteBundle } from "./bundle.js";
 import { config } from "./config.js";
 import { FhirError, fhir } from "./fhir.js";
 import { checkValue, resolveObservedAt, toObservationSummary, toOahObservation } from "./mapping.js";
 import { indicatorList, isCitizenIndicator, OAH_PROFILES, PRESENCE_VALUES, type Presence } from "./oah.js";
 import { createWithPhoto, loadPhoto, parsePhoto } from "./photos.js";
+import { recordProvenance } from "./provenance.js";
 import { RecentIds } from "./recent.js";
 import { highestLevel } from "./rules.js";
 import { seed } from "./seed.js";
@@ -138,6 +139,16 @@ app.post<{ Body: ReportBody }>(
     if (created.id) recentReports.add(created.id);
     const observation = toObservationSummary(created);
 
+    if (created.id) {
+      const targets = [`Observation/${created.id}`, ...(created.derivedFrom ?? []).flatMap((d) => d.reference ?? [])];
+      // Lineage is valuable but never worth losing a citizen's report over.
+      try {
+        await recordProvenance(targets, body.reporter);
+      } catch (err) {
+        req.log.error(err, "provenance write failed");
+      }
+    }
+
     let alerts: Awaited<ReturnType<typeof evaluateSite>> = [];
     try {
       alerts = await evaluateSite(site, req.log);
@@ -205,6 +216,33 @@ app.get<{ Params: { id: string } }>(
   async (req, reply) => {
     const alert = await getAlert(req.params.id);
     return alert ?? reply.code(404).send({ error: `Unknown alert ${req.params.id}` });
+  },
+);
+
+// A notified clinic reports back what it did. Closes the loop: the reply is a FHIR Communication
+// linked to the one we sent, so the environmental side can see which warnings led to action.
+app.post<{ Params: { id: string }; Body: { clinicId: string; action: AckAction; note?: string } }>(
+  "/alerts/:id/acknowledge",
+  {
+    schema: {
+      ...ID_PARAMS,
+      body: {
+        type: "object",
+        required: ["clinicId", "action"],
+        additionalProperties: false,
+        properties: {
+          clinicId: { type: "string", pattern: ID_PATTERN },
+          action: { type: "string", enum: ACK_ACTION_IDS },
+          note: { type: "string", maxLength: 500 },
+        },
+      },
+    },
+  },
+  async (req, reply) => {
+    const { clinicId, action, note } = req.body;
+    const result = await acknowledgeAlert(req.params.id, clinicId, action, note);
+    if ("error" in result) return reply.code(result.status).send({ error: result.error });
+    return reply.code(201).send(result);
   },
 );
 

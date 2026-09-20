@@ -1,25 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
 import { ArrowLeftIcon, BotIcon, CircleCheckIcon, LeafIcon, StethoscopeIcon } from "lucide-react";
+import { Acknowledge } from "@/components/clinic/acknowledge";
 import { FhirLink } from "@/components/fhir-link";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { useApi } from "@/hooks/use-api";
 import { api, fhirObservationUrl } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import type { AlertSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // Last two path segments of a FHIR URL, e.g. "DetectedIssue/123".
 const resourceLabel = (url: string) => url.split("/").slice(-2).join("/");
 
 export function AlertDetail({ id }: { id: string }) {
-  const { data: alert, error, loading } = useApi(useCallback(() => api.getAlert(id), [id]));
+  // Set when the alert is opened from a clinic dashboard; that clinic can then respond.
+  const clinicId = useSearchParams().get("clinic");
+  const { data: fetched, error, loading } = useApi(useCallback(() => api.getAlert(id), [id]));
+  const clinics = useApi(useMemo(() => (clinicId ? () => api.getClinics() : null), [clinicId]));
+  // Replaced in place after a response, so the new acknowledgement shows without a refetch.
+  const [responded, setResponded] = useState<AlertSummary | null>(null);
+  const alert = responded ?? fetched;
+  const clinic = clinics.data?.find((c) => c.id === clinicId);
   const closed = alert?.status === "closed";
 
   return (
     <div className="space-y-6">
-      <Link href="/clinic" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        href={clinicId ? `/clinic?clinic=${encodeURIComponent(clinicId)}` : "/clinic"}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeftIcon className="size-4" aria-hidden />
         Clinic alerts
       </Link>
@@ -129,6 +142,8 @@ export function AlertDetail({ id }: { id: string }) {
               ))}
             </ul>
           </section>
+
+          <Acknowledge alert={alert} clinic={clinic} onAcknowledged={setResponded} />
 
           <section aria-labelledby="fhir-heading" className="space-y-2">
             <h2 id="fhir-heading" className="font-semibold">

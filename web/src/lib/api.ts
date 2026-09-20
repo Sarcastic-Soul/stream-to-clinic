@@ -1,4 +1,4 @@
-import type { AlertFilter, Api, ReportInput } from "./types";
+import type { AcknowledgeInput, AlertFilter, Api, ReportInput } from "./types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://oneaquahealth.duckdns.org").replace(/\/$/, "");
 export const FHIR_URL = `${API_URL}/fhir`;
@@ -57,6 +57,12 @@ const httpApi: Api = {
     return request(`/alerts${query}`);
   },
   getAlert: (id) => request(`/alerts/${enc(id)}`),
+  acknowledgeAlert: (id, input: AcknowledgeInput) =>
+    request(`/alerts/${enc(id)}/acknowledge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
 };
 
 // The mock is only bundled into the chunk loaded when NEXT_PUBLIC_API_MOCK=1.
@@ -73,6 +79,7 @@ export const api: Api = {
   getClinics: () => client().then((c) => c.getClinics()),
   getAlerts: (filter) => client().then((c) => c.getAlerts(filter)),
   getAlert: (id) => client().then((c) => c.getAlert(id)),
+  acknowledgeAlert: (id, input) => client().then((c) => c.acknowledgeAlert(id, input)),
 };
 
 export const fhirObservationUrl = (id: string) => `${FHIR_URL}/Observation/${enc(id)}`;

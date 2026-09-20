@@ -69,7 +69,23 @@ interface AlertSummary {
   watchFor: string;        // what clinicians should watch for ("" for environmental-only risks)
   narrative: string[];     // step-by-step account of how the engine reached this alert, in plain language
   evidence: string[];      // bare Observation ids that triggered the alert (public URL: /fhir/Observation/<id>)
+  acknowledgements: Acknowledgement[];  // clinic replies, oldest first; empty until one answers
   fhir: { detectedIssue: string; communications: string[] };  // public /fhir URLs
+}
+
+type AckAction = "staff-briefed" | "patients-advised" | "authority-notified" | "no-action";
+
+// A notified clinic's reply, stored as a FHIR Communication with inResponseTo pointing
+// at the alert Communication it answers.
+interface Acknowledgement {
+  id: string;              // FHIR Communication id
+  clinicId: string;        // FHIR Organization id
+  clinicName: string;
+  action: AckAction;
+  actionLabel: string;     // human-readable form of action
+  note?: string;           // free text from the clinic
+  at: string;
+  fhirUrl: string;         // public /fhir URL
 }
 ```
 
@@ -82,12 +98,27 @@ interface AlertSummary {
 | GET | `/sites` | `SiteSummary[]` |
 | GET | `/sites/:id` | `SiteDetail` or 404 |
 | GET | `/sites/:id/bundle` | FHIR R4 `Bundle` (type `collection`, `application/fhir+json`, sent as a `<siteId>-bundle.json` download) or 404. Contains the site `Location` and its water body, the district `Group` and its health-measure baselines, the serving clinics (`Organization`, `HealthcareService`), the last 30 days of citizen `Observation`s (up to 200) with their photo `Media` (the `Binary` stays a link), and the site's `DetectedIssue`s (active and closed) with their `Communication`s. `fullUrl`s are public `/fhir` URLs |
-| POST | `/reports` | `201 { observation: ObservationSummary, fhirUrl: string, alerts: AlertSummary[] }` — `alerts` lists alerts raised or updated by this report |
+| POST | `/reports` | `201 { observation: ObservationSummary, fhirUrl: string, alerts: AlertSummary[] }` — `alerts` lists alerts raised or updated by this report. Also writes a FHIR `Provenance` naming the reporter as author and the app as assembler, targeting the `Observation` (and its photo `Media`); a failed lineage write is logged, never fatal |
 | GET | `/clinics` | `ClinicSummary[]` |
 | GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |
 | GET | `/alerts/:id` | `AlertSummary` (active or closed) or 404 |
+| POST | `/alerts/:id/acknowledge` | `201 AlertSummary` — a notified clinic reports what it did. 404 for an unknown alert or clinic, 409 if that clinic was not notified about this alert |
 | GET | `/photos/:id` | The photo bytes (`image/jpeg`, `image/png` or `image/webp`) or 404 |
 | PUT | `/hooks/observation/Observation/:id` | Internal: FHIR rest-hook target for the Observation Subscription (HAPI delivers each match as a PUT of the Observation); answers 204. Not reachable through the public proxy |
+
+### `POST /alerts/:id/acknowledge` body
+
+```ts
+{
+  clinicId: string;   // must be a clinic that was sent this alert
+  action: AckAction;
+  note?: string;      // up to 500 characters
+}
+```
+
+Creates a FHIR `Communication` with `inResponseTo` the alert's own `Communication` to that clinic,
+`sender` the clinic `Organization`, `topic` the coded action and the note as its payload. Replies are
+kept as separate resources rather than on the `DetectedIssue`, which a later evaluation rewrites in place.
 
 ### `POST /reports` body
 

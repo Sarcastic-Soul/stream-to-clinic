@@ -51,6 +51,8 @@ Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-h
 | ✅ **Validated in CI** | Every resource the API produces is checked against the OAH IG; the build fails on a profile error |
 | 🔎 **Explainable, not magic** | Four documented rules with configurable thresholds — no black-box model |
 | 📴 **Works offline** | Installable PWA; reports queue in IndexedDB and send themselves when the connection returns |
+| 🔁 **Closed loop** | Clinics answer an alert in one click; the reply is a FHIR `Communication` linked to the original, so the environmental side sees which warnings led to action |
+| 🧾 **Traceable** | Every citizen report carries a `Provenance`: who reported it, which app assembled it, when it was recorded |
 | 🗺️ **Readable map** | Colourful basemap, place names in one language, quieter country labels, nearby sites clustered with a count |
 | 🌓 **Light / dark / system** | Theme toggle applied before the first paint, no flash |
 | ♿ **Accessible** | axe: 0 violations on every page, in both themes |

@@ -3,12 +3,13 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { toCommunication, toDetectedIssue } from "../api/src/alerts.js";
+import { toAckCommunication, toCommunication, toDetectedIssue } from "../api/src/alerts.js";
 import { toSiteBundle } from "../api/src/bundle.js";
 import { toOahObservation } from "../api/src/mapping.js";
 import { buildNarrative } from "../api/src/narrative.js";
 import { CITIZEN_INDICATORS, PRESENCE_VALUES, type CitizenIndicator } from "../api/src/oah.js";
 import { parsePhoto, photoTransaction } from "../api/src/photos.js";
+import { toProvenance } from "../api/src/provenance.js";
 import type { RiskDecision } from "../api/src/rules.js";
 import { SITES, seedBundle } from "../api/src/seed.js";
 
@@ -68,7 +69,20 @@ function alertResources(): fhir4.Resource[] {
   const narrative = buildNarrative({ decision, siteName: site.name, reportCount: 9, weather, clinics: [clinic.name] });
   const issue = { ...toDetectedIssue(site, decision, NOW.toISOString(), narrative), id: "alert-algal-bloom" };
   const communication = { ...toCommunication(site, decision, `DetectedIssue/${issue.id}`, clinic), id: "alert-algal-bloom-clinic-almyros" };
-  return [issue, communication];
+  // The clinic answering the alert: the reply that closes the loop.
+  const acknowledgement = {
+    ...toAckCommunication({
+      issueId: issue.id,
+      siteId: site.id,
+      inResponseTo: communication.id,
+      clinic,
+      action: "staff-briefed",
+      note: "Reception and triage briefed; advising patients to avoid contact with the water.",
+      sent: NOW.toISOString(),
+    }),
+    id: "alert-algal-bloom-acknowledgement",
+  };
+  return [issue, communication, acknowledgement];
 }
 
 // A report with a photo: the Binary, the Media pointing at it, and the Observation whose derivedFrom
@@ -100,7 +114,12 @@ function siteBundle(resources: fhir4.Resource[]): fhir4.Bundle {
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
-const resources = [...citizenReports(), ...seedResources(), ...alertResources(), ...photoResources()];
+// Lineage for one citizen report, as written after every POST /reports.
+const provenance = {
+  ...toProvenance(["Observation/report-filamentousAlgae-abundant"], "Validation sample", NOW.toISOString()),
+  id: "report-provenance",
+};
+const resources = [...citizenReports(), ...seedResources(), ...alertResources(), ...photoResources(), provenance];
 const all = [...resources, siteBundle(resources)];
 for (const resource of all) {
   // resourceType first, then id, for readable files.

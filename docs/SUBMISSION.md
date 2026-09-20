@@ -61,7 +61,7 @@ Stream-to-Clinic connects the two with open standards:
 ## How we built it
 
 - **Frontend:** Next.js 16, React 19, Tailwind CSS 4, shadcn/ui, MapLibre GL with OpenFreeMap tiles, Recharts; installable PWA with an offline report queue. Light, dark or system theme; a colourful basemap with place names in one language and nearby sites clustered with a count; axe reports 0 accessibility violations on every page in both themes.
-- **API:** Fastify 5 on Node.js 24 LTS, TypeScript. Maps reports to OAH profiles, runs the risk engine and writes alerts.
+- **API:** Fastify 5 on Node.js 24 LTS, TypeScript. Maps reports to OAH profiles, writes a `Provenance` for each one, runs the risk engine, writes alerts, and takes clinic replies back as `Communication` resources with `inResponseTo`, so the loop closes in standard resources.
 - **FHIR server:** HAPI FHIR JPA Server 8.12 (R4) on PostgreSQL 18, public read-only behind Caddy with automatic HTTPS.
 - **Standards tooling:** SUSHI builds the OAH IG from source at a pinned commit; HL7 `validator_cli` 6.10 validates the application's resources in GitHub Actions.
 - **Weather:** Open-Meteo (free, no key, CC BY 4.0).

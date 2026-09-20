@@ -49,6 +49,26 @@ export interface ClinicSummary {
   siteIds: string[];
 }
 
+export type AckAction = "staff-briefed" | "patients-advised" | "authority-notified" | "no-action";
+
+// A clinic's reply to an alert, stored as a FHIR Communication with inResponseTo.
+export interface Acknowledgement {
+  id: string;
+  clinicId: string;
+  clinicName: string;
+  action: AckAction;
+  actionLabel: string;
+  note?: string;
+  at: string;
+  fhirUrl: string;
+}
+
+export interface AcknowledgeInput {
+  clinicId: string;
+  action: AckAction;
+  note?: string;
+}
+
 export interface AlertSummary {
   id: string;
   risk: RiskKind;
@@ -65,6 +85,8 @@ export interface AlertSummary {
   // Optional here so alerts raised before the narrative existed still render.
   narrative?: string[];
   evidence: string[];
+  // Optional here so alerts fetched before this existed still render.
+  acknowledgements?: Acknowledgement[];
   fhir: { detectedIssue: string; communications: string[] };
 }
 
@@ -112,4 +134,5 @@ export interface Api {
   getClinics(): Promise<ClinicSummary[]>;
   getAlerts(filter?: AlertFilter): Promise<AlertSummary[]>;
   getAlert(id: string): Promise<AlertSummary>;
+  acknowledgeAlert(id: string, input: AcknowledgeInput): Promise<AlertSummary>;
 }

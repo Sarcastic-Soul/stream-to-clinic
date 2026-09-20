@@ -5,10 +5,32 @@ import type { FastifyBaseLogger } from "fastify";
 import { config } from "./config.js";
 import { fhir } from "./fhir.js";
 import { buildNarrative, narrativeText, parseNarrative } from "./narrative.js";
-import { ALERT_ID_SYSTEM, RISK_SYSTEM } from "./oah.js";
+import { ACK_SYSTEM, ALERT_ID_SYSTEM, RISK_SYSTEM } from "./oah.js";
 import { RISKS, evaluateRisks, type RiskDecision, type RiskId, type RiskLevel } from "./rules.js";
 import { loadClinics, siteObservations, type ClinicSummary, type Site } from "./store.js";
 import { getWeather } from "./weather.js";
+
+/** What a clinic can say it did about an alert. Coded, so the response is queryable, not just prose. */
+export const ACK_ACTIONS = {
+  "staff-briefed": "Clinic staff briefed",
+  "patients-advised": "Patients advised about the water",
+  "authority-notified": "Local health authority notified",
+  "no-action": "Noted, no action needed",
+} as const;
+
+export type AckAction = keyof typeof ACK_ACTIONS;
+export const ACK_ACTION_IDS = Object.keys(ACK_ACTIONS) as AckAction[];
+
+export interface Acknowledgement {
+  id: string;
+  clinicId: string;
+  clinicName: string;
+  action: AckAction;
+  actionLabel: string;
+  note?: string;
+  at: string;
+  fhirUrl: string;
+}
 
 export interface AlertSummary {
   id: string;
@@ -24,6 +46,8 @@ export interface AlertSummary {
   narrative: string[];
   watchFor: string;
   evidence: string[];
+  // What the notified clinics reported back; empty until someone acknowledges.
+  acknowledgements: Acknowledgement[];
   fhir: { detectedIssue: string; communications: string[] };
 }
 
@@ -90,21 +114,53 @@ export function toCommunication(site: Site, decision: RiskDecision, issueRef: st
   } satisfies fhir4.Communication;
 }
 
-// Maps Communication recipients back to the DetectedIssue each one is about.
+export interface IssueCommunications {
+  /** Alerts sent out to clinics. */
+  sent: { id: string; clinicId: string }[];
+  /** Replies from those clinics, oldest first. */
+  replies: Acknowledgement[];
+}
+
+// Maps Communications back to the DetectedIssue each one is about. A Communication with
+// inResponseTo is a clinic answering; anything else is us notifying a clinic.
 async function loadCommunications() {
   const { matches } = await fhir.search("Communication", {
     category: `${ALERT_CATEGORY.system}|${ALERT_CATEGORY.code}`,
     _sort: "-_lastUpdated",
-    _count: 200,
+    _count: 400,
   });
-  const byIssue = new Map<string, { id: string; clinicId: string }[]>();
+  const byIssue = new Map<string, IssueCommunications>();
+  const forIssue = (id: string) => {
+    const found = byIssue.get(id) ?? { sent: [], replies: [] };
+    byIssue.set(id, found);
+    return found;
+  };
   for (const comm of matches) {
     const issueId = comm.about?.[0]?.reference?.replace("DetectedIssue/", "");
-    const clinicId = comm.recipient?.[0]?.reference?.replace("Organization/", "") ?? "";
     if (!issueId || !comm.id) continue;
-    byIssue.set(issueId, [...(byIssue.get(issueId) ?? []), { id: comm.id, clinicId }]);
+    const reply = toAcknowledgement(comm);
+    if (reply) forIssue(issueId).replies.push(reply);
+    else forIssue(issueId).sent.push({ id: comm.id, clinicId: comm.recipient?.[0]?.reference?.replace("Organization/", "") ?? "" });
   }
+  for (const entry of byIssue.values()) entry.replies.sort((a, b) => a.at.localeCompare(b.at));
   return byIssue;
+}
+
+export function toAcknowledgement(comm: fhir4.Communication): Acknowledgement | undefined {
+  const action = comm.topic?.coding?.find((c) => c.system === ACK_SYSTEM)?.code as AckAction | undefined;
+  const clinicId = comm.sender?.reference?.replace("Organization/", "");
+  if (!comm.id || !comm.inResponseTo?.length || !action || !(action in ACK_ACTIONS) || !clinicId) return undefined;
+  const note = comm.payload?.[0]?.contentString;
+  return {
+    id: comm.id,
+    clinicId,
+    clinicName: comm.sender?.display ?? clinicId,
+    action,
+    actionLabel: ACK_ACTIONS[action],
+    ...(note ? { note } : {}),
+    at: comm.sent ?? comm.meta?.lastUpdated ?? "",
+    fhirUrl: publicUrl(`Communication/${comm.id}`),
+  };
 }
 
 type Communications = Awaited<ReturnType<typeof loadCommunications>>;
@@ -132,9 +188,10 @@ export function toAlertSummary(issue: fhir4.DetectedIssue, comms: Communications
     evidence: (issue.evidence ?? []).flatMap((e) =>
       (e.detail ?? []).flatMap((d) => d.reference?.replace("Observation/", "") ?? []),
     ),
+    acknowledgements: comms.get(issue.id)?.replies ?? [],
     fhir: {
       detectedIssue: publicUrl(`DetectedIssue/${issue.id}`),
-      communications: (comms.get(issue.id) ?? []).map((c) => publicUrl(`Communication/${c.id}`)),
+      communications: (comms.get(issue.id)?.sent ?? []).map((c) => publicUrl(`Communication/${c.id}`)),
     },
   };
 }
@@ -152,7 +209,7 @@ export async function listAlerts(filter: { siteId?: string; clinicId?: string } 
   ]);
   return matches
     .filter(isActive)
-    .filter((i) => !filter.clinicId || (comms.get(i.id ?? "") ?? []).some((c) => c.clinicId === filter.clinicId))
+    .filter((i) => !filter.clinicId || (comms.get(i.id ?? "")?.sent ?? []).some((c) => c.clinicId === filter.clinicId))
     .flatMap((i) => toAlertSummary(i, comms) ?? [])
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
@@ -160,6 +217,72 @@ export async function listAlerts(filter: { siteId?: string; clinicId?: string } 
 export async function getAlert(id: string): Promise<AlertSummary | undefined> {
   const [issue, comms] = await Promise.all([fhir.read("DetectedIssue", id), loadCommunications()]);
   return issue ? toAlertSummary(issue, comms) : undefined;
+}
+
+export interface AckInput {
+  issueId: string;
+  siteId: string;
+  inResponseTo: string;
+  clinic: { id: string; name: string };
+  action: AckAction;
+  note?: string;
+  sent: string;
+}
+
+export function toAckCommunication({ issueId, siteId, inResponseTo, clinic, action, note, sent }: AckInput): fhir4.Communication {
+  return {
+    resourceType: "Communication",
+    status: "completed",
+    category: [{ coding: [ALERT_CATEGORY] }],
+    topic: { coding: [{ system: ACK_SYSTEM, code: action, display: ACK_ACTIONS[action] }], text: ACK_ACTIONS[action] },
+    inResponseTo: [{ reference: `Communication/${inResponseTo}` }],
+    about: [{ reference: `DetectedIssue/${issueId}` }],
+    ...(siteId ? { subject: { reference: `Group/cohort-${siteId}` } } : {}),
+    sender: { reference: `Organization/${clinic.id}`, display: clinic.name },
+    sent,
+    received: sent,
+    payload: [{ contentString: note?.trim() ? note.trim() : ACK_ACTIONS[action] }],
+  };
+}
+
+export type AckResult = AlertSummary | { error: string; status: 404 | 409 };
+
+// A clinic answers an alert it was sent. The answer is a Communication with inResponseTo pointing
+// at the original, so the reply is a first-class FHIR resource any other system can read back.
+// Acknowledgements deliberately live outside the DetectedIssue: a re-evaluation rewrites that
+// resource in place, and a clinic's reply must survive it.
+export async function acknowledgeAlert(
+  alertId: string,
+  clinicId: string,
+  action: AckAction,
+  note?: string,
+): Promise<AckResult> {
+  const [issue, comms, clinics] = await Promise.all([
+    fhir.read("DetectedIssue", alertId),
+    loadCommunications(),
+    loadClinics(),
+  ]);
+  if (!issue?.id) return { error: `Unknown alert ${alertId}`, status: 404 };
+  const clinic = clinics.find((c) => c.id === clinicId);
+  if (!clinic) return { error: `Unknown clinic ${clinicId}`, status: 404 };
+
+  const original = (comms.get(issue.id)?.sent ?? []).find((c) => c.clinicId === clinicId);
+  if (!original) return { error: `${clinic.name} was not notified about this alert`, status: 409 };
+
+  await fhir.create(
+    toAckCommunication({
+      issueId: issue.id,
+      siteId: issue.implicated?.[0]?.reference?.replace("Location/", "") ?? "",
+      inResponseTo: original.id,
+      clinic,
+      action,
+      note,
+      sent: new Date().toISOString(),
+    }),
+  );
+
+  const updated = await getAlert(issue.id);
+  return updated ?? { error: `Unknown alert ${alertId}`, status: 404 };
 }
 
 // One evaluation per site at a time, so concurrent reports cannot raise duplicate issues.

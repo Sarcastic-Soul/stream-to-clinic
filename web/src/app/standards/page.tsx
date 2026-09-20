@@ -23,6 +23,7 @@ const MAPPING: { concept: string; resource: string; profile?: { name: string; fi
     profile: { name: "ObservationIndicatorsOah", file: "observation-indicators-oah.fsh" },
   },
   { concept: "Report photo", resource: "Media + Binary" },
+  { concept: "Who reported it and when it was recorded", resource: "Provenance" },
   { concept: "District cohort near a stream", resource: "Group", profile: { name: "GroupOah", file: "group-oah.fsh" } },
   {
     concept: "Baseline disease prevalence",
@@ -32,6 +33,7 @@ const MAPPING: { concept: string; resource: string; profile?: { name: string; fi
   { concept: "Clinic and the streams it serves", resource: "Organization + HealthcareService" },
   { concept: "Health alert with its evidence and reasoning", resource: "DetectedIssue" },
   { concept: "Alert sent to a clinic", resource: "Communication" },
+  { concept: "Clinic's reply: what it did about the alert", resource: "Communication (inResponseTo)" },
   { concept: "Trigger for observations from other systems", resource: "Subscription (rest-hook)" },
 ];
 
@@ -170,6 +172,8 @@ export default function StandardsPage() {
           <li>
             If a rule fires, a <Code>DetectedIssue</Code> and one <Code>Communication</Code> per serving clinic appear on the
             FHIR server, where a clinic system can read them, for example with <Code>Communication?recipient=Organization/…</Code>.
+            When a clinic answers, its reply is another <Code>Communication</Code> whose <Code>inResponseTo</Code> points at the
+            one we sent, so the loop closes in standard resources rather than in a private status column.
           </li>
         </ol>
       </Section>

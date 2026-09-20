@@ -1,4 +1,4 @@
-import type { Indicator, ObservationSummary, RiskLevel } from "./types";
+import type { AckAction, Indicator, ObservationSummary, RiskLevel } from "./types";
 
 export const RISK: Record<RiskLevel, { label: string; color: string; badge: string }> = {
   none: {
@@ -24,6 +24,16 @@ export const RISK: Record<RiskLevel, { label: string; color: string; badge: stri
 };
 
 export const RISK_LEVELS: RiskLevel[] = ["none", "low", "medium", "high"];
+
+// What a clinic can report back about an alert. Mirrors ACK_ACTIONS in api/src/alerts.ts.
+export const ACK_ACTIONS: Record<AckAction, string> = {
+  "staff-briefed": "Clinic staff briefed",
+  "patients-advised": "Patients advised about the water",
+  "authority-notified": "Local health authority notified",
+  "no-action": "Noted, no action needed",
+};
+
+export const ACK_ACTION_IDS = Object.keys(ACK_ACTIONS) as AckAction[];
 
 // Unit to print after a value; "" for dimensionless indicators (pH), whose name already says it.
 export function unitLabel(indicator: Pick<Indicator, "unit" | "unitLabel"> | undefined, fallback?: string): string {

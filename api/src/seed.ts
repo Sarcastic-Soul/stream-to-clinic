@@ -5,7 +5,9 @@
 import { config } from "./config.js";
 import { fhir } from "./fhir.js";
 import { toOahObservation } from "./mapping.js";
+import { ACK_ACTIONS } from "./alerts.js";
 import {
+  ACK_SYSTEM,
   CITIZEN_INDICATORS,
   CLINIC_ID_SYSTEM,
   DEMO_TAG,
@@ -130,6 +132,10 @@ function codeSystems(): fhir4.CodeSystem[] {
     {
       ...base, id: "water-health-risk", url: RISK_SYSTEM, name: "WaterHealthRisk", title: "Water-related health risks raised by Stream-to-Clinic",
       concept: Object.entries(RISKS).map(([code, { title }]) => ({ code, display: title })),
+    },
+    {
+      ...base, id: "alert-response", url: ACK_SYSTEM, name: "AlertResponse", title: "What a clinic did about an alert",
+      concept: Object.entries(ACK_ACTIONS).map(([code, display]) => ({ code, display })),
     },
   ];
 }

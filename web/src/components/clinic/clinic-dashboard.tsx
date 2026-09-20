@@ -87,7 +87,7 @@ export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
           <ul className="space-y-2">
             {sorted?.map((alert) => (
               <li key={alert.id}>
-                <AlertCard alert={alert} />
+                <AlertCard alert={alert} clinicId={clinicId} />
               </li>
             ))}
           </ul>

@@ -2,7 +2,9 @@
 // Sites follow the OneAquaHealth IG examples; readings, clinics and weather are synthetic.
 
 import { ApiError, FHIR_URL } from "./api";
+import { ACK_ACTIONS } from "./format";
 import type {
+  Acknowledgement,
   AlertSummary,
   Api,
   ClinicSummary,
@@ -375,4 +377,28 @@ export const mockApi: Api = {
       if (!alert) throw new ApiError(`Unknown alert: ${id}`, 404);
       return alert;
     }),
+  acknowledgeAlert: (id, input) =>
+    run(() => {
+      const alert = alerts.find((a) => a.id === id);
+      if (!alert) throw new ApiError(`Unknown alert: ${id}`, 404);
+      const clinic = CLINICS.find((c) => c.id === input.clinicId);
+      if (!clinic) throw new ApiError(`Unknown clinic: ${input.clinicId}`, 404);
+      if (!clinic.siteIds.includes(alert.siteId) || alert.watchFor === "") {
+        throw new ApiError(`${clinic.name} was not notified about this alert`, 409);
+      }
+      const ackId = newId("ack");
+      const ack: Acknowledgement = {
+        id: ackId,
+        clinicId: clinic.id,
+        clinicName: clinic.name,
+        action: input.action,
+        actionLabel: ACK_ACTIONS[input.action],
+        ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+        at: new Date().toISOString(),
+        fhirUrl: `${FHIR_URL}/Communication/${ackId}`,
+      };
+      const updated = { ...alert, acknowledgements: [...(alert.acknowledgements ?? []), ack] };
+      alerts = alerts.map((a) => (a.id === id ? updated : a));
+      return updated;
+    }, 400),
 };

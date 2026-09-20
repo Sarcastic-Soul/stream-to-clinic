@@ -23,7 +23,7 @@ Caddy on the EC2 host (oneaquahealth.duckdns.org, Let's Encrypt)
    │   (read-only for the public; writes answer 405)
    ├─ /hooks/*  ──────────────► 404 (Subscription callbacks are internal only)
    └─ everything else ────────► API (Fastify, TypeScript)
-                                  ├─ maps citizen reports (and photos) to FHIR
+                                  ├─ maps citizen reports (and photos, and Provenance) to FHIR
                                   ├─ risk engine (+ Open-Meteo weather)
                                   └─ writes DetectedIssue / Communication to HAPI
 HAPI ── rest-hook Subscription (internal network) ──► API /hooks/observation
