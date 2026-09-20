@@ -116,7 +116,7 @@ const HISTORY: Record<
 };
 
 const HISTORY_DAYS = 28;
-const VISIT_EVERY_DAYS = 2;
+const VISIT_EVERY_DAYS = 1;
 const VOLUNTEER = "OAH citizen volunteer (demo)";
 
 // Deterministic pseudo-random number in [0, 1) from a string (FNV-1a), so reruns write identical resources.
@@ -246,7 +246,8 @@ function baselines(year: number): fhir4.Observation[] {
   );
 }
 
-// Citizen visits every other day for the last four weeks, dated relative to `now`.
+// A citizen visit per day for the last four weeks, dated relative to `now`. Ids are fixed per
+// site, indicator and day, so reseeding rewrites the same resources rather than piling up new ones.
 export function history(now: Date): fhir4.Observation[] {
   const observations: fhir4.Observation[] = [];
   for (const site of SITES) {
@@ -319,8 +320,14 @@ export function seedBundle(now = new Date()): fhir4.Bundle {
   };
 }
 
+// Four weeks of history is more than one transaction should carry on a small host, so the seed is
+// applied in chunks; each is a transaction of its own and safe to retry.
+const CHUNK = 150;
+
 export async function seed(): Promise<number> {
-  const bundle = seedBundle();
-  await fhir.transaction(bundle);
-  return bundle.entry?.length ?? 0;
+  const entry = seedBundle().entry ?? [];
+  for (let start = 0; start < entry.length; start += CHUNK) {
+    await fhir.transaction({ resourceType: "Bundle", type: "transaction", entry: entry.slice(start, start + CHUNK) });
+  }
+  return entry.length;
 }
