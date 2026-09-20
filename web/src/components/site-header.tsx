@@ -45,8 +45,8 @@ export function SiteHeader() {
                     href={href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "inline-flex h-9 items-center rounded-md px-2 text-sm sm:px-3 font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-                      active ? "bg-muted text-foreground" : "text-muted-foreground",
+                      "inline-flex h-9 items-center rounded-md px-2 text-sm sm:px-3 font-medium transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+                      active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
                     )}
                   >
                     {label}

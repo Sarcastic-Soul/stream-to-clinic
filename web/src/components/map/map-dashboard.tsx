@@ -92,7 +92,7 @@ function Legend({ sites }: { sites: SiteSummary[] }) {
   const count = (level: RiskLevel) => sites.filter((s) => s.riskLevel === level).length;
   return (
     // bottom-9 on phones keeps it off the full-width map attribution bar.
-    <div className="pointer-events-none absolute bottom-9 left-2 rounded-lg border bg-background/90 p-2 text-xs shadow-sm backdrop-blur sm:bottom-2">
+    <div className="pointer-events-none absolute bottom-9 left-2 rounded-lg border border-slate-300 bg-white/90 p-2 text-xs text-slate-900 shadow-sm backdrop-blur sm:bottom-2">
       <p className="mb-1 font-medium">Sites by risk</p>
       <ul className="flex gap-2.5 sm:block sm:space-y-0.5">
         {RISK_LEVELS.map((level) => (
@@ -103,7 +103,7 @@ function Legend({ sites }: { sites: SiteSummary[] }) {
               aria-hidden
             />
             <span className="tabular-nums">{count(level)}</span>
-            <span className="hidden text-muted-foreground sm:inline">{RISK[level].label.toLowerCase()}</span>
+            <span className="hidden text-slate-600 sm:inline">{RISK[level].label.toLowerCase()}</span>
           </li>
         ))}
       </ul>

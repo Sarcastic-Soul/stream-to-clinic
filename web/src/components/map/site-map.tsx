@@ -14,11 +14,10 @@ import MapGL, {
 } from "react-map-gl/maplibre";
 import { MaximizeIcon } from "lucide-react";
 import { RISK } from "@/lib/format";
-import { useTheme } from "@/hooks/use-theme";
 import type { SiteSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { clusterSites, type SiteCluster } from "./cluster";
-import { STYLE_URL, applyOneLanguageLabels } from "./map-style";
+import { STYLE_URL, applyLabelStyle } from "./map-style";
 
 // Copied into public/ by scripts/copy-maplibre-worker.mjs; the bundled default URL does not resolve.
 setWorkerUrl(`/maplibre/${getVersion()}/maplibre-gl-worker.mjs`);
@@ -46,7 +45,6 @@ export default function SiteMap({ sites, selectedId, onSelect }: Props) {
   const [map, setMap] = useState<MapRef | null>(null);
   // Clustering depends on scale only, so the markers are recomputed on zoom, not on every pan frame.
   const [zoom, setZoom] = useState<number | null>(null);
-  const theme = useTheme();
   const selected = sites.find((s) => s.id === selectedId);
 
   const clusters = useMemo(
@@ -86,7 +84,7 @@ export default function SiteMap({ sites, selectedId, onSelect }: Props) {
     <MapGL
       ref={setMap}
       initialViewState={initialViewState}
-      mapStyle={STYLE_URL[theme]}
+      mapStyle={STYLE_URL}
       style={{ width: "100%", height: "100%" }}
       minZoom={2}
       maxZoom={16}
@@ -97,9 +95,9 @@ export default function SiteMap({ sites, selectedId, onSelect }: Props) {
       cooperativeGestures={typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches}
       onLoad={(event: MapEvent) => {
         setZoom(event.target.getZoom());
-        applyOneLanguageLabels(event.target);
+        applyLabelStyle(event.target);
       }}
-      onStyleData={(event: MapStyleDataEvent) => applyOneLanguageLabels(event.target)}
+      onStyleData={(event: MapStyleDataEvent) => applyLabelStyle(event.target)}
       onZoom={(event: ViewStateChangeEvent) => setZoom(event.viewState.zoom)}
     >
       <NavigationControl position="top-right" showCompass={false} />
@@ -109,7 +107,7 @@ export default function SiteMap({ sites, selectedId, onSelect }: Props) {
         <button
           type="button"
           onClick={fitAll}
-          className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-lg border bg-background/90 px-2 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white/90 px-2 py-1.5 text-xs font-medium text-slate-900 shadow-sm backdrop-blur transition-colors hover:bg-white focus-visible:ring-3 focus-visible:ring-sky-500/50 focus-visible:outline-none"
         >
           <MaximizeIcon className="size-3.5" aria-hidden />
           All sites
@@ -156,7 +154,7 @@ export default function SiteMap({ sites, selectedId, onSelect }: Props) {
               </button>
               {showLabel && (
                 <span
-                  className="pointer-events-none absolute top-1/2 left-full ml-2 -translate-y-1/2 rounded-md bg-background/85 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap shadow-sm backdrop-blur-[2px]"
+                  className="pointer-events-none absolute top-1/2 left-full ml-2 -translate-y-1/2 rounded-md bg-white/85 px-1.5 py-0.5 text-xs font-medium text-slate-900 whitespace-nowrap shadow-sm backdrop-blur-[2px]"
                   aria-hidden
                 >
                   {cluster.sites[0].name}

@@ -51,7 +51,7 @@ Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-h
 | ✅ **Validated in CI** | Every resource the API produces is checked against the OAH IG; the build fails on a profile error |
 | 🔎 **Explainable, not magic** | Four documented rules with configurable thresholds — no black-box model |
 | 📴 **Works offline** | Installable PWA; reports queue in IndexedDB and send themselves when the connection returns |
-| 🗺️ **Readable map** | Minimal basemap that follows the theme, place names in one language, nearby sites clustered with a count |
+| 🗺️ **Readable map** | Colourful basemap, place names in one language, quieter country labels, nearby sites clustered with a count |
 | 🌓 **Light / dark / system** | Theme toggle applied before the first paint, no flash |
 | ♿ **Accessible** | axe: 0 violations on every page, in both themes |
 | 📦 **Open data** | Download any site as a FHIR `collection` Bundle |
