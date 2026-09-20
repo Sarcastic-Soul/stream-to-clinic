@@ -63,6 +63,7 @@ const httpApi: Api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     }),
+  getTrends: (days?: number) => request(`/trends${days ? `?days=${days}` : ""}`),
 };
 
 // The mock is only bundled into the chunk loaded when NEXT_PUBLIC_API_MOCK=1.
@@ -80,6 +81,7 @@ export const api: Api = {
   getAlerts: (filter) => client().then((c) => c.getAlerts(filter)),
   getAlert: (id) => client().then((c) => c.getAlert(id)),
   acknowledgeAlert: (id, input) => client().then((c) => c.acknowledgeAlert(id, input)),
+  getTrends: (days) => client().then((c) => c.getTrends(days)),
 };
 
 export const fhirObservationUrl = (id: string) => `${FHIR_URL}/Observation/${enc(id)}`;

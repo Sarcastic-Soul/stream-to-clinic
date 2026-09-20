@@ -52,6 +52,7 @@ Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-h
 | 🔎 **Explainable, not magic** | Four documented rules with configurable thresholds — no black-box model |
 | 📴 **Works offline** | Installable PWA; reports queue in IndexedDB and send themselves when the connection returns |
 | 🌍 **Speaks the local language** | English, Greek and Italian on the citizen screens — the languages of the pilot sites, not just the developers' |
+| 📈 **From one report to a pattern** | A four-week catchment view: which stream is warming, losing oxygen or rising in conductivity, per site and per region, next to the district's disease baseline |
 | 🔁 **Closed loop** | Clinics answer an alert in one click; the reply is a FHIR `Communication` linked to the original, so the environmental side sees which warnings led to action |
 | 🧾 **Traceable** | Every citizen report carries a `Provenance`: who reported it, which app assembled it, when it was recorded |
 | 🗺️ **Readable map** | Colourful basemap, place names in one language, quieter country labels, nearby sites clustered with a count |

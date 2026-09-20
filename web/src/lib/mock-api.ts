@@ -15,6 +15,8 @@ import type {
   RiskLevel,
   SiteDetail,
   SiteSummary,
+  SiteTrend,
+  Trends,
 } from "./types";
 
 const INDICATORS: Indicator[] = [
@@ -401,4 +403,124 @@ export const mockApi: Api = {
       alerts = alerts.map((a) => (a.id === id ? updated : a));
       return updated;
     }, 400),
+  getTrends: (days = 28) => run(() => trends(days)),
 };
+
+// The mock's own history is only a week long, so the trend it returns is a short one; the shape
+// matches GET /trends exactly.
+const BASELINE_PERCENT: Record<string, number> = {
+  "Loc-Almyros": 4.8,
+  "Loc-Giofyros": 5.6,
+  "Loc-Giofyros-LowerReach": 6.1,
+  "Loc-Benevento": 3.9,
+};
+
+function indicatorTrends(observations: ObservationSummary[]): SiteTrend["indicators"] {
+  return INDICATORS.flatMap((indicator): SiteTrend["indicators"] => {
+    const mine = observations.filter((o) => o.indicator === indicator.id);
+    if (mine.length === 0) return [];
+    const digits = indicator.id === "conductivity" ? 0 : indicator.id === "pH" ? 2 : 1;
+    const byDay = new Map<string, number[]>();
+    for (const o of mine) {
+      const value = indicator.kind === "quantity" ? Number(o.value) : o.value === "absent" ? 0 : 1;
+      const day = o.observedAt.slice(0, 10);
+      byDay.set(day, [...(byDay.get(day) ?? []), value]);
+    }
+    const points = [...byDay.entries()]
+      .map(([date, values]) => ({
+        date,
+        value:
+          indicator.kind === "quantity"
+            ? round(values.reduce((sum, v) => sum + v, 0) / values.length, digits)
+            : values.reduce((sum, v) => sum + v, 0),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const base = {
+      indicator: indicator.id,
+      display: indicator.display,
+      kind: indicator.kind,
+      ...(indicator.unitLabel ? { unitLabel: indicator.unitLabel } : {}),
+      reports: mine.length,
+      points,
+      direction: "steady",
+    } satisfies SiteTrend["indicators"][number];
+    if (indicator.kind !== "quantity") return [base];
+    // Split at the middle of the reported period, as the API does.
+    const times = mine.map((o) => Date.parse(o.observedAt));
+    const midpoint = (Math.min(...times) + Math.max(...times)) / 2;
+    const half = (older: boolean) =>
+      mine.filter((o) => (Date.parse(o.observedAt) < midpoint) === older).map((o) => Number(o.value));
+    const [olderValues, newerValues] = [half(true), half(false)];
+    if (olderValues.length === 0 || newerValues.length === 0) return [base];
+    const mean = (values: number[]) => round(values.reduce((sum, v) => sum + v, 0) / values.length, digits);
+    const earlier = mean(olderValues);
+    const recent = mean(newerValues);
+    const threshold = Math.max(Math.abs(earlier) * 0.1, 10 ** -digits);
+    return [
+      {
+        ...base,
+        earlier,
+        recent,
+        change: round(recent - earlier, digits),
+        direction: recent - earlier > threshold ? "rising" : earlier - recent > threshold ? "falling" : "steady",
+      },
+    ];
+  });
+}
+
+function trends(days: number): Trends {
+  const to = now;
+  const from = to - days * 24 * HOUR;
+  const active = activeAlerts();
+  const sites: SiteTrend[] = SITES.map((site) => {
+    const observations = (observationsBySite.get(site.id) ?? []).filter((o) => Date.parse(o.observedAt) >= from);
+    const mine = active.filter((a) => a.siteId === site.id);
+    return {
+      siteId: site.id,
+      name: site.name,
+      waterBody: site.waterBody,
+      region: site.region,
+      reports: observations.length,
+      reporters: new Set(observations.map((o) => o.reporter)).size,
+      riskLevel: maxLevel(mine.map((a) => a.level)),
+      activeAlerts: mine.map((a) => ({ id: a.id, title: a.title, level: a.level, answered: (a.acknowledgements ?? []).length > 0 })),
+      indicators: indicatorTrends(observations),
+      health: [
+        {
+          code: "gastrointestinal",
+          display: "% of people with Cases of Gastrointestinal diseases",
+          value: BASELINE_PERCENT[site.id],
+          unit: "%",
+          period: String(new Date(now).getUTCFullYear() - 1),
+        },
+      ],
+    };
+  }).sort((a, b) => LEVEL_ORDER.indexOf(b.riskLevel) - LEVEL_ORDER.indexOf(a.riskLevel) || b.reports - a.reports);
+
+  const byRegion = new Map<string, SiteTrend[]>();
+  for (const site of sites) byRegion.set(site.region, [...(byRegion.get(site.region) ?? []), site]);
+
+  return {
+    from: new Date(from).toISOString(),
+    to: new Date(to).toISOString(),
+    days,
+    totals: {
+      sites: sites.length,
+      reports: sites.reduce((sum, s) => sum + s.reports, 0),
+      reporters: new Set(sites.flatMap((s) => (observationsBySite.get(s.siteId) ?? []).map((o) => o.reporter))).size,
+      activeAlerts: active.length,
+      answeredAlerts: active.filter((a) => (a.acknowledgements ?? []).length > 0).length,
+    },
+    regions: [...byRegion.entries()]
+      .map(([region, members]) => ({
+        region,
+        sites: members.length,
+        reports: members.reduce((sum, s) => sum + s.reports, 0),
+        sitesAtRisk: members.filter((s) => s.riskLevel !== "none").length,
+        activeAlerts: members.reduce((sum, s) => sum + s.activeAlerts.length, 0),
+        answeredAlerts: members.reduce((sum, s) => sum + s.activeAlerts.filter((a) => a.answered).length, 0),
+      }))
+      .sort((a, b) => a.region.localeCompare(b.region)),
+    sites,
+  };
+}

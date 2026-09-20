@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,6 +50,11 @@ export function MapDashboard() {
             {sites.loading && <LoadingRows rows={4} label="Loading sites" />}
             {sites.error && <LoadError error={sites.error} what="sites" />}
             {sites.data && <SiteList sites={sites.data} onSelect={select} />}
+            <p className="text-sm">
+              <Link href="/trends" className="underline underline-offset-2">
+                {t("map.seeTrends")}
+              </Link>
+            </p>
           </div>
         )}
       </aside>

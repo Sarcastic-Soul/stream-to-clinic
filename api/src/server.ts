@@ -10,6 +10,7 @@ import { createWithPhoto, loadPhoto, parsePhoto } from "./photos.js";
 import { recordProvenance } from "./provenance.js";
 import { RecentIds } from "./recent.js";
 import { highestLevel } from "./rules.js";
+import { clampDays, loadTrends, TREND_DAYS } from "./trends.js";
 import { seed } from "./seed.js";
 import { latestPerIndicator, loadClinics, loadSite, loadSites, siteObservations } from "./store.js";
 
@@ -244,6 +245,22 @@ app.post<{ Params: { id: string }; Body: { clinicId: string; action: AckAction; 
     if ("error" in result) return reply.code(result.status).send({ error: result.error });
     return reply.code(201).send(result);
   },
+);
+
+// Catchment view: several weeks of citizen reports per site and per region, for a health
+// authority deciding where to look, rather than a clinic acting on one alert.
+app.get<{ Querystring: { days?: number } }>(
+  "/trends",
+  {
+    schema: {
+      querystring: {
+        type: "object",
+        additionalProperties: false,
+        properties: { days: { type: "integer", minimum: TREND_DAYS.min, maximum: TREND_DAYS.max } },
+      },
+    },
+  },
+  async (req) => loadTrends(clampDays(req.query.days ?? TREND_DAYS.default)),
 );
 
 await app.listen({ host: "0.0.0.0", port: config.port });

@@ -17,7 +17,7 @@ test("seed bundle is an idempotent transaction of PUTs with valid ids", () => {
   assert.deepEqual(seedBundle(now), bundle);
 });
 
-test("sites are LocationOah with position, and history covers the last two weeks", () => {
+test("sites are LocationOah with position, and history covers the last four weeks", () => {
   const resources = (seedBundle(now).entry ?? []).map((e) => e.resource!);
   const sites = resources.filter((r): r is fhir4.Location => r.resourceType === "Location" && !!r.meta?.profile);
   assert.equal(sites.length, SITES.length);
@@ -33,6 +33,6 @@ test("sites are LocationOah with position, and history covers the last two weeks
   for (const o of history) {
     assert.deepEqual(o.meta?.profile, [OAH_PROFILES.observationIndicators]);
     const age = now.getTime() - Date.parse(o.effectiveDateTime!);
-    assert.ok(age > 0 && age < 14 * 86_400_000);
+    assert.ok(age > 0 && age < 28 * 86_400_000);
   }
 });

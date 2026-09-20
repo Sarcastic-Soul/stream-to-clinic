@@ -90,6 +90,67 @@ export interface AlertSummary {
   fhir: { detectedIssue: string; communications: string[] };
 }
 
+// GET /trends: what the reports add up to over weeks, per site and per region.
+export type TrendDirection = "rising" | "falling" | "steady";
+
+export interface TrendPoint {
+  date: string; // YYYY-MM-DD
+  value: number;
+}
+
+export interface IndicatorTrend {
+  indicator: string;
+  display: string;
+  kind: IndicatorKind;
+  unitLabel?: string;
+  reports: number;
+  points: TrendPoint[];
+  // Means over the older and the newer half of the window; absent when one half has no reading.
+  earlier?: number;
+  recent?: number;
+  change?: number;
+  direction: TrendDirection;
+}
+
+export interface HealthBaseline {
+  code: string;
+  display: string;
+  value: number;
+  unit: string;
+  period: string;
+}
+
+export interface SiteTrend {
+  siteId: string;
+  name: string;
+  waterBody: string;
+  region: string;
+  reports: number;
+  reporters: number;
+  riskLevel: RiskLevel;
+  activeAlerts: { id: string; title: string; level: RiskLevel; answered: boolean }[];
+  indicators: IndicatorTrend[];
+  health: HealthBaseline[];
+}
+
+export interface RegionTrend {
+  region: string;
+  sites: number;
+  reports: number;
+  sitesAtRisk: number;
+  activeAlerts: number;
+  answeredAlerts: number;
+}
+
+export interface Trends {
+  from: string;
+  to: string;
+  days: number;
+  totals: { sites: number; reports: number; reporters: number; activeAlerts: number; answeredAlerts: number };
+  regions: RegionTrend[];
+  sites: SiteTrend[];
+}
+
 export interface Health {
   status: "ok";
   fhir: string;
@@ -135,4 +196,5 @@ export interface Api {
   getAlerts(filter?: AlertFilter): Promise<AlertSummary[]>;
   getAlert(id: string): Promise<AlertSummary>;
   acknowledgeAlert(id: string, input: AcknowledgeInput): Promise<AlertSummary>;
+  getTrends(days?: number): Promise<Trends>;
 }

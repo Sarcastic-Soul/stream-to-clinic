@@ -9,10 +9,12 @@ import { useTranslate } from "@/hooks/use-locale";
 import { MOCK } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+// `wide` links are hidden on a phone, where the citizen screens matter and the bar has no room.
 const LINKS = [
   { href: "/", key: "nav.map" },
   { href: "/report", key: "nav.report" },
   { href: "/clinic", key: "nav.clinic" },
+  { href: "/trends", key: "nav.trends", wide: true },
   { href: "/standards", key: "nav.standards" },
 ] as const;
 
@@ -40,10 +42,11 @@ export function SiteHeader() {
         )}
         <nav aria-label={t("nav.main")} className="ml-auto">
           <ul className="flex items-center gap-1">
-            {LINKS.map(({ href, key }) => {
+            {LINKS.map((link) => {
+              const { href, key } = link;
               const active = isActive(href);
               return (
-                <li key={href}>
+                <li key={href} className={"wide" in link ? "hidden sm:block" : undefined}>
                   <Link
                     href={href}
                     aria-current={active ? "page" : undefined}

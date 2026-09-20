@@ -82,7 +82,17 @@ type QuantityId = { [K in CitizenIndicator]: (typeof CITIZEN_INDICATORS)[K]["kin
 type PresenceId = Exclude<CitizenIndicator, QuantityId>;
 
 // Plausible ranges for the synthetic citizen history, plus the chance each presence indicator is seen.
-const HISTORY: Record<SiteId, { ranges: Record<QuantityId, [number, number]>; seen: Record<PresenceId, number>; latest?: Partial<Record<QuantityId, number>> }> = {
+// `drift` is the total change applied across the window (oldest visit to newest), so a site can
+// show a direction rather than noise: the trend view is built on it.
+const HISTORY: Record<
+  SiteId,
+  {
+    ranges: Record<QuantityId, [number, number]>;
+    seen: Record<PresenceId, number>;
+    drift?: Partial<Record<QuantityId, number>>;
+    latest?: Partial<Record<QuantityId, number>>;
+  }
+> = {
   "Loc-Almyros": {
     ranges: { waterTemperature: [21.5, 23.5], pH: [7.6, 8.1], dissolvedO2: [7, 8.4], conductivity: [2400, 3200] },
     seen: { foam: 0, filamentousAlgae: 0, diptera: 0.2 },
@@ -94,7 +104,9 @@ const HISTORY: Record<SiteId, { ranges: Record<QuantityId, [number, number]>; se
   "Loc-Giofyros-LowerReach": {
     ranges: { waterTemperature: [21, 23.5], pH: [7.2, 7.7], dissolvedO2: [4.2, 5.2], conductivity: [950, 1200] },
     seen: { foam: 0.1, filamentousAlgae: 0, diptera: 0.5 },
-    latest: { dissolvedO2: 3.7 }, // a falling oxygen trend, so the map shows an environmental alert
+    // The reach warms and loses oxygen over the window: the trend view shows where to look first.
+    drift: { dissolvedO2: -1.2, waterTemperature: 1.4, conductivity: 180 },
+    latest: { dissolvedO2: 3.7 }, // the newest reading, low enough for an environmental alert
   },
   "Loc-Benevento": {
     ranges: { waterTemperature: [16, 18.5], pH: [7.8, 8.2], dissolvedO2: [8.2, 9.4], conductivity: [520, 680] },
@@ -102,7 +114,7 @@ const HISTORY: Record<SiteId, { ranges: Record<QuantityId, [number, number]>; se
   },
 };
 
-const HISTORY_DAYS = 14;
+const HISTORY_DAYS = 28;
 const VISIT_EVERY_DAYS = 2;
 const VOLUNTEER = "OAH citizen volunteer (demo)";
 
@@ -233,7 +245,7 @@ function baselines(year: number): fhir4.Observation[] {
   );
 }
 
-// Citizen visits every other day for the last two weeks, dated relative to `now`.
+// Citizen visits every other day for the last four weeks, dated relative to `now`.
 export function history(now: Date): fhir4.Observation[] {
   const observations: fhir4.Observation[] = [];
   for (const site of SITES) {
@@ -252,7 +264,10 @@ export function history(now: Date): fhir4.Observation[] {
           const key = indicator as QuantityId;
           const [lo, hi] = profile.ranges[key];
           const decimals = key === "conductivity" ? 0 : key === "pH" ? 2 : 1;
-          value = (isLatest ? profile.latest?.[key] : undefined) ?? Number((lo + (hi - lo) * r).toFixed(decimals));
+          // 0 at the oldest visit, 1 at the newest.
+          const progress = (HISTORY_DAYS - 1 - daysAgo) / (HISTORY_DAYS - 2);
+          const drifted = lo + (hi - lo) * r + (profile.drift?.[key] ?? 0) * progress;
+          value = (isLatest ? profile.latest?.[key] : undefined) ?? Number(drifted.toFixed(decimals));
         } else {
           value = r < profile.seen[indicator as PresenceId] ? "present" : "absent";
         }

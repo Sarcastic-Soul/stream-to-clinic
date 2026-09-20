@@ -87,6 +87,55 @@ interface Acknowledgement {
   at: string;
   fhirUrl: string;         // public /fhir URL
 }
+
+// GET /trends: what weeks of reports add up to, per site and per region.
+type TrendDirection = "rising" | "falling" | "steady";
+
+interface IndicatorTrend {
+  indicator: string;       // Indicator.id
+  display: string;
+  kind: IndicatorKind;
+  unitLabel?: string;
+  reports: number;
+  points: { date: string; value: number }[];  // one per day: mean for a quantity,
+                                              // count of present/abundant for a presence
+  earlier?: number;        // mean over the older half of the reported period
+  recent?: number;         // mean over the newer half
+  change?: number;         // recent - earlier
+  direction: TrendDirection;  // "steady" unless the change clears a tenth of the earlier mean
+}
+
+interface SiteTrend {
+  siteId: string;
+  name: string;
+  waterBody: string;
+  region: string;
+  reports: number;
+  reporters: number;       // distinct reporter names
+  riskLevel: RiskLevel;
+  activeAlerts: { id: string; title: string; level: RiskLevel; answered: boolean }[];
+  indicators: IndicatorTrend[];
+  health: { code: string; display: string; value: number; unit: string; period: string }[];
+                           // district baselines (ObservationHealthMeasureOah)
+}
+
+interface RegionTrend {
+  region: string;
+  sites: number;
+  reports: number;
+  sitesAtRisk: number;
+  activeAlerts: number;
+  answeredAlerts: number;
+}
+
+interface Trends {
+  from: string;            // ISO 8601
+  to: string;
+  days: number;
+  totals: { sites: number; reports: number; reporters: number; activeAlerts: number; answeredAlerts: number };
+  regions: RegionTrend[];  // by region name
+  sites: SiteTrend[];      // worst risk first, then most reports
+}
 ```
 
 ## Endpoints
@@ -103,6 +152,7 @@ interface Acknowledgement {
 | GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |
 | GET | `/alerts/:id` | `AlertSummary` (active or closed) or 404 |
 | POST | `/alerts/:id/acknowledge` | `201 AlertSummary` — a notified clinic reports what it did. 404 for an unknown alert or clinic, 409 if that clinic was not notified about this alert |
+| GET | `/trends?days=` | `Trends` — `days` is an integer between 7 and 90, default 28. Counts citizen `Observation`s and active `DetectedIssue`s per site and per region, with a daily series and a direction per indicator, and the district health baselines alongside |
 | GET | `/photos/:id` | The photo bytes (`image/jpeg`, `image/png` or `image/webp`) or 404 |
 | PUT | `/hooks/observation/Observation/:id` | Internal: FHIR rest-hook target for the Observation Subscription (HAPI delivers each match as a PUT of the Observation); answers 204. Not reachable through the public proxy |
 
