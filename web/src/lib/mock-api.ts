@@ -444,6 +444,8 @@ const BASELINE_PERCENT: Record<string, number> = {
   "Loc-Benevento": 3.9,
 };
 
+const NOTICEABLE: Record<string, number> = { waterTemperature: 0.8, pH: 0.15, dissolvedO2: 0.4, conductivity: 60 };
+
 function indicatorTrends(observations: ObservationSummary[]): SiteTrend["indicators"] {
   return INDICATORS.flatMap((indicator): SiteTrend["indicators"] => {
     const mine = observations.filter((o) => o.indicator === indicator.id);
@@ -484,7 +486,9 @@ function indicatorTrends(observations: ObservationSummary[]): SiteTrend["indicat
     const mean = (values: number[]) => round(values.reduce((sum, v) => sum + v, 0) / values.length, digits);
     const earlier = mean(olderValues);
     const recent = mean(newerValues);
-    const threshold = Math.max(Math.abs(earlier) * 0.1, 10 ** -digits);
+    // Same rule as the API: a tenth of the earlier mean, or a change that matters in the water.
+    const noticeable = NOTICEABLE[indicator.id] ?? Infinity;
+    const threshold = Math.max(Math.min(Math.abs(earlier) * 0.1, noticeable), 10 ** -digits);
     return [
       {
         ...base,

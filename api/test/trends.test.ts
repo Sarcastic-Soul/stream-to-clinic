@@ -36,6 +36,15 @@ test("small movements stay steady, so noise does not read as a trend", () => {
   assert.equal(trend?.direction, "steady");
 });
 
+test("a change that matters in the water counts even when the numbers are large", () => {
+  // A tenth of 23 °C would be 2.3 °C; 1 °C in four weeks is a warming stream, not noise.
+  const trend = trendFor("waterTemperature", [obs("waterTemperature", 23, 20), obs("waterTemperature", 24, 4)]);
+  assert.equal(trend?.direction, "rising");
+  // Conductivity moves in hundreds, so 20 µS/cm is still nothing.
+  const flat = trendFor("conductivity", [obs("conductivity", 1100, 20), obs("conductivity", 1120, 4)]);
+  assert.equal(flat?.direction, "steady");
+});
+
 test("readings on the same day are averaged into one point", () => {
   const trend = trendFor("waterTemperature", [obs("waterTemperature", 20, 3), obs("waterTemperature", 22, 3)]);
   assert.deepEqual(trend?.points, [{ date: new Date(to - 3 * 86_400_000).toISOString().slice(0, 10), value: 21 }]);

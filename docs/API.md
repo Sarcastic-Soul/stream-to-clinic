@@ -112,7 +112,8 @@ interface IndicatorTrend {
   earlier?: number;        // mean over the older half of the reported period
   recent?: number;         // mean over the newer half
   change?: number;         // recent - earlier
-  direction: TrendDirection;  // "steady" unless the change clears a tenth of the earlier mean
+  direction: TrendDirection;  // "steady" unless the change clears the smaller of a tenth of the
+                              // earlier mean and a per-indicator "noticeable" amount (1 °C, 0.4 mg/L …)
 }
 
 interface SiteTrend {

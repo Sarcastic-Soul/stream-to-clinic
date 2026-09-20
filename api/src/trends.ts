@@ -85,11 +85,20 @@ const dayOf = (iso: string) => iso.slice(0, 10);
 const mean = (values: number[]) => values.reduce((sum, v) => sum + v, 0) / values.length;
 const round = (value: number, decimals: number) => Number(value.toFixed(decimals));
 
-// Thresholds are relative, so the same rule reads sensibly for 8 mg/L of oxygen and 3000 µS/cm of
-// conductivity: a tenth of the earlier mean, and never less than a rounding step.
-function directionOf(earlier: number, recent: number, decimals: number): Direction {
+// How much a reading has to move before it counts as a trend rather than noise: the smaller of a
+// tenth of the earlier mean and a change that matters in the water itself. The relative part keeps
+// the rule sensible across scales (8 mg/L of oxygen, 3000 µS/cm of conductivity); the absolute part
+// stops a real 1 °C rise being called steady just because the numbers are large.
+const NOTICEABLE: Partial<Record<CitizenIndicator, number>> = {
+  waterTemperature: 0.8, // °C
+  pH: 0.15,
+  dissolvedO2: 0.4, // mg/L
+  conductivity: 60, // µS/cm
+};
+
+function directionOf(indicator: CitizenIndicator, earlier: number, recent: number, decimals: number): Direction {
   const step = 10 ** -decimals;
-  const threshold = Math.max(Math.abs(earlier) * 0.1, step);
+  const threshold = Math.max(Math.min(Math.abs(earlier) * 0.1, NOTICEABLE[indicator] ?? Infinity), step);
   if (recent - earlier > threshold) return "rising";
   if (earlier - recent > threshold) return "falling";
   return "steady";
@@ -142,7 +151,7 @@ export function trendFor(indicator: CitizenIndicator, observations: ObservationS
 
   const earlier = round(mean(earlierValues), decimals);
   const recent = round(mean(recentValues), decimals);
-  return { ...base, earlier, recent, change: round(recent - earlier, decimals), direction: directionOf(earlier, recent, decimals) };
+  return { ...base, earlier, recent, change: round(recent - earlier, decimals), direction: directionOf(indicator, earlier, recent, decimals) };
 }
 
 // District health measures (ObservationHealthMeasureOah) seeded per site, newest period first.
