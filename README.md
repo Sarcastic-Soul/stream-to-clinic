@@ -39,9 +39,13 @@ Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-h
 
 ## Screenshots
 
-| Map and site detail | Report (phone) | The same form in Greek | Clinic alerts | Alert explained, answered |
-|---|---|---|---|---|
-| ![Map with a site panel showing active alerts and latest readings](docs/screenshots/map.webp) | ![Report form on a phone](docs/screenshots/report.webp) | ![The same report form rendered in Greek](docs/screenshots/report-el.webp) | ![Clinic alert list](docs/screenshots/clinic.webp) | ![Alert detail with reasons, a step-by-step narrative, the clinic responses and FHIR links](docs/screenshots/alert.webp) |
+| Map and site detail | Report (phone) | The same form in Greek |
+|---|---|---|
+| ![Map with a site panel showing active alerts and latest readings](docs/screenshots/map.webp) | ![Report form on a phone](docs/screenshots/report.webp) | ![The same report form rendered in Greek](docs/screenshots/report-el.webp) |
+
+| Clinic alerts | Alert explained, answered | Four weeks of reports |
+|---|---|---|
+| ![Clinic alert list](docs/screenshots/clinic.webp) | ![Alert detail with reasons, a step-by-step narrative, the clinic responses and FHIR links](docs/screenshots/alert.webp) | ![Catchment trends: each site's indicators over four weeks, worst site first, with the rising and falling ones named](docs/screenshots/trends.webp) |
 
 ## Highlights
 
