@@ -1,6 +1,6 @@
 # Stream-to-Clinic: Architecture and Tech Stack
 
-Last updated: 2026-09-19. For scope, stages and progress see [PLAN.md](PLAN.md).
+Last updated: 2026-09-20. For scope, stages and progress see [PLAN.md](PLAN.md).
 
 ## Principles
 
@@ -35,9 +35,9 @@ HAPI ── rest-hook Subscription (internal network) ──► API /hooks/obser
 |---|---|---|---|
 | Frontend framework | Next.js (App Router) | 16.3 | Hosted on Vercel Hobby, root directory `web/` |
 | UI runtime | React | 19.2 | Version pinned by Next.js |
-| Styling | Tailwind CSS | 4 | Dark mode follows the OS setting |
+| Styling | Tailwind CSS | 4 | Light and dark themes chosen by the user: `data-theme` on `<html>` drives the tokens and the `dark:` variant, an inline script in the root layout applies the saved choice before the first paint, and "system" follows the OS. Preference in `localStorage`, toggle in the header (`src/lib/theme.ts`, `src/hooks/use-theme.ts`) |
 | UI components | shadcn/ui (`base-nova`, Base UI primitives) + lucide icons | CLI 4.21 | Copied into `web/src/components/ui`; `cn` package for class merging |
-| Maps | MapLibre GL + `react-map-gl/maplibre` + OpenFreeMap `liberty` tiles | 6.10 / 8.1 | No API key; OSM attribution shown. MapLibre 6 finds its worker via `import.meta.url`, which bundling breaks, so `scripts/copy-maplibre-worker.mjs` copies it to `public/maplibre/<version>/` before `dev`/`build` |
+| Maps | MapLibre GL + `react-map-gl/maplibre` + OpenFreeMap `positron` / `dark` tiles | 6.10 / 8.1 | No API key; OSM attribution shown. The basemap follows the app theme (the two minimal OpenFreeMap styles, no points of interest). Place labels ship as "latin\nlocal script"; `map-style.ts` rewrites every `text-field` to one language (`name:en` → `name:latin` → `name`). Sites closer together than 44 px at the current zoom are drawn as one counted cluster marker (`cluster.ts`) so nearby sites cannot hide each other; markers are recomputed on zoom, not on every pan frame. Two-finger gestures on touch devices. MapLibre 6 finds its worker via `import.meta.url`, which bundling breaks, so `scripts/copy-maplibre-worker.mjs` copies it to `public/maplibre/<version>/` before `dev`/`build` |
 | Charts | Recharts | 3.10 | Site trend charts |
 | PWA | Serwist (`@serwist/turbopack` + `serwist`) | 9.5 | Linked from the Next.js PWA guide (Turbopack variant; `next-pwa` is abandoned). `app/sw.ts` is bundled with esbuild and served at `/serwist/sw.js`; precaches the app shell and `/report`, caches API reads network-first, and serves `/~offline` for unvisited pages. Manifest from `app/manifest.ts`, icons from `scripts/make-icons.mjs` |
 | Offline report queue | `idb-keyval` | 6.3 | Reports made offline wait in IndexedDB and are sent on the `online` event or the next app load; no Background Sync dependency |

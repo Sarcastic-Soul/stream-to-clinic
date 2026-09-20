@@ -64,6 +64,14 @@ export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
         )}
       </div>
 
+      {!clinicId && (
+        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+          Pick a clinic to see the early warnings for the streams it serves, each with the citizen readings and
+          weather behind it. The same alerts leave the server as FHIR <code>Communication</code> resources, so a
+          clinical system can subscribe to them instead of this page.
+        </p>
+      )}
+
       {clinicId && (
         <section aria-labelledby="alerts-heading" className="space-y-3">
           <h2 id="alerts-heading" className="text-lg font-semibold">

@@ -15,7 +15,7 @@ export function AlertCard({ alert, showSite = true }: { alert: AlertSummary; sho
           <span className="font-medium">{alert.title}</span>
           <RiskBadge level={alert.level} />
           {alert.watchFor === "" && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Environmental</span>
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">Environmental</span>
           )}
         </div>
         <p className="text-sm text-muted-foreground">

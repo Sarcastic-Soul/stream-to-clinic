@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api";
 import { RISK, RISK_LEVELS } from "@/lib/format";
-import type { SiteSummary } from "@/lib/types";
+import type { RiskLevel, SiteSummary } from "@/lib/types";
 import { SitePanel } from "./site-panel";
 
 const SiteMap = dynamic(() => import("./site-map"), {
@@ -32,7 +32,7 @@ export function MapDashboard() {
         ) : (
           <Skeleton className="size-full rounded-none" />
         )}
-        <Legend />
+        {sites.data && <Legend sites={sites.data} />}
       </section>
 
       <aside aria-label="Site details" className="border-t lg:overflow-y-auto lg:border-t-0 lg:border-l">
@@ -87,15 +87,23 @@ function SiteList({ sites, onSelect }: { sites: SiteSummary[]; onSelect: (id: st
   ));
 }
 
-function Legend() {
+// Doubles as a summary: how many sites sit at each risk level right now.
+function Legend({ sites }: { sites: SiteSummary[] }) {
+  const count = (level: RiskLevel) => sites.filter((s) => s.riskLevel === level).length;
   return (
-    <div className="pointer-events-none absolute top-2 left-2 rounded-lg border bg-background/90 p-2 text-xs shadow-sm backdrop-blur">
-      <p className="mb-1 font-medium">Risk level</p>
-      <ul className="space-y-0.5">
+    // bottom-9 on phones keeps it off the full-width map attribution bar.
+    <div className="pointer-events-none absolute bottom-9 left-2 rounded-lg border bg-background/90 p-2 text-xs shadow-sm backdrop-blur sm:bottom-2">
+      <p className="mb-1 font-medium">Sites by risk</p>
+      <ul className="flex gap-2.5 sm:block sm:space-y-0.5">
         {RISK_LEVELS.map((level) => (
           <li key={level} className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full border border-white" style={{ backgroundColor: RISK[level].color }} aria-hidden />
-            {RISK[level].label}
+            <span
+              className="size-2.5 shrink-0 rounded-full border border-white"
+              style={{ backgroundColor: RISK[level].color }}
+              aria-hidden
+            />
+            <span className="tabular-nums">{count(level)}</span>
+            <span className="hidden text-muted-foreground sm:inline">{RISK[level].label.toLowerCase()}</span>
           </li>
         ))}
       </ul>

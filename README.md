@@ -1,31 +1,60 @@
+<div align="center">
+
 # Stream-to-Clinic
 
+**A citizen spots algae on Monday. Nearby clinics are warned on Tuesday — not after the first ER cases.**
+
+One Health early warning for urban streams: citizen observations become HL7 FHIR resources, and risky patterns become alerts for the clinics that serve the neighbourhood.
+
+[![CI](https://github.com/Sarcastic-Soul/stream-to-clinic/actions/workflows/ci.yml/badge.svg)](https://github.com/Sarcastic-Soul/stream-to-clinic/actions/workflows/ci.yml)
 [![Validate FHIR](https://github.com/Sarcastic-Soul/stream-to-clinic/actions/workflows/validate-fhir.yml/badge.svg)](https://github.com/Sarcastic-Soul/stream-to-clinic/actions/workflows/validate-fhir.yml)
+[![FHIR R4](https://img.shields.io/badge/FHIR-R4%20(4.0.1)-orange)](https://hl7.org/fhir/R4/)
+[![OneAquaHealth IG](https://img.shields.io/badge/profiles-OneAquaHealth%20IG-0aa)](https://github.com/hl7-eu/oah)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-One Health early warning for urban streams: citizen observations become HL7 FHIR resources, and risky patterns turn into alerts for the clinics that serve the surrounding community.
+[**Live app**](https://stream-to-clinic.vercel.app) · [**Public FHIR R4 endpoint**](https://oneaquahealth.duckdns.org/fhir/metadata) · [**Standards page**](https://stream-to-clinic.vercel.app/standards) · [Plan](docs/PLAN.md) · [Architecture](docs/ARCHITECTURE.md) · [API](docs/API.md)
 
-Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-hackathon.devpost.com/), **Track 7 — Digital Health Standards**.
+Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-hackathon.devpost.com/) — **Track 7, Digital Health Standards**.
 
-**Try it:** [stream-to-clinic.vercel.app](https://stream-to-clinic.vercel.app) · public FHIR R4 endpoint [oneaquahealth.duckdns.org/fhir](https://oneaquahealth.duckdns.org/fhir/metadata) (read-only) · plan and progress in [docs/PLAN.md](docs/PLAN.md) · architecture in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+</div>
+
+---
 
 ## The problem
 
-Citizens notice when an urban stream changes (algae mats, foam, smell, mosquito larvae), often days before anyone gets sick. That knowledge rarely reaches the clinics that will see the skin, gastrointestinal or vector-borne illness that follows, because environmental data and health data live in separate systems with no shared standard.
+- Citizens notice when a stream changes — algae mats, foam, smell, mosquito larvae — often days before anyone falls ill.
+- Clinics see the skin, gastrointestinal and vector-borne cases that follow, with no idea why.
+- Environmental data and health data sit in separate systems, with no shared standard between them.
 
 ## What it does
 
-1. **Citizens report in under 30 seconds** from a phone: pick a stream site (or the nearest by GPS), choose an indicator, enter a value, optionally add a photo. The app is an installable PWA and queues reports while offline.
-2. **Every report is standard FHIR from the start:** an `ObservationIndicatorsOah` on a public HAPI FHIR R4 server, using the OneAquaHealth code system and UCUM units. Photos are FHIR `Media` + `Binary`.
-3. **An explainable risk engine** combines recent reports with Open-Meteo rainfall: algal bloom, sewage overflow, mosquito breeding and low oxygen. Each alert carries plain-language reasons and a step-by-step account of the decision.
-4. **Clinics get standard FHIR alerts:** a `DetectedIssue` (evidence → the triggering Observations) and a `Communication` to each clinic serving that stream. Environmental-only risks stay on the map.
-5. **Clinicians see one screen:** alerts for their area, what to watch for, and why.
-6. **Other systems can plug in:** a FHIR rest-hook `Subscription` runs the same assessment for Observations written directly to the FHIR server.
+| Step | What happens | In FHIR |
+|---|---|---|
+| 1. Report | Citizen picks a site (or the nearest by GPS), an indicator and a value, optionally a photo — under 30 seconds, offline-capable | `Observation` (`ObservationIndicatorsOah`), `Media` + `Binary` |
+| 2. Assess | A rule engine combines recent reports with Open-Meteo rainfall: algal bloom, sewage overflow, mosquito breeding, low oxygen | — |
+| 3. Explain | Every alert carries plain-language reasons and a numbered account of how the decision was reached | `DetectedIssue.evidence`, `.detail` |
+| 4. Notify | Clinics serving that stream get the alert; environment-only risks stay on the map | `Communication` |
+| 5. Act | Clinicians see one screen: what to watch for, and why | — |
+| 6. Integrate | Observations written to the FHIR server by *any* system run the same assessment | `Subscription` (rest-hook) |
+
+## Screenshots
 
 | Map and site detail | Report (phone) | Clinic alerts | Alert explained |
 |---|---|---|---|
 | ![Map with a site panel showing active alerts and latest readings](docs/screenshots/map.webp) | ![Report form on a phone](docs/screenshots/report.webp) | ![Clinic alert list](docs/screenshots/clinic.webp) | ![Alert detail with reasons, step-by-step narrative and FHIR links](docs/screenshots/alert.webp) |
 
-Sites come from the OneAquaHealth IG examples (Almyros and Giofyros in Crete, Benevento in Italy). Clinics and health figures are synthetic demo data, and the risk rules are demonstration heuristics, not clinical guidance.
+## Highlights
+
+| | |
+|---|---|
+| 🌍 **Real OAH sites** | Almyros and Giofyros (Crete), Benevento (Italy), straight from the IG examples |
+| ✅ **Validated in CI** | Every resource the API produces is checked against the OAH IG; the build fails on a profile error |
+| 🔎 **Explainable, not magic** | Four documented rules with configurable thresholds — no black-box model |
+| 📴 **Works offline** | Installable PWA; reports queue in IndexedDB and send themselves when the connection returns |
+| 🗺️ **Readable map** | Minimal basemap that follows the theme, place names in one language, nearby sites clustered with a count |
+| 🌓 **Light / dark / system** | Theme toggle applied before the first paint, no flash |
+| ♿ **Accessible** | axe: 0 violations on every page, in both themes |
+| 📦 **Open data** | Download any site as a FHIR `collection` Bundle |
 
 ## How it fits together
 
@@ -41,42 +70,55 @@ Caddy (oneaquahealth.duckdns.org, automatic HTTPS)
                             • DetectedIssue + Communication ◄───────┘  internal network)
 ```
 
-| Concept | FHIR resource |
-|---|---|
-| Stream site | `Location` (`LocationOah`) |
-| Citizen report | `Observation` (`ObservationIndicatorsOah`) |
-| Report photo | `Media` + `Binary` |
-| District cohort | `Group` (`GroupOah`) |
-| Baseline health data | `Observation` (`ObservationHealthMeasureOah`) |
-| Clinic and the sites it serves | `Organization` + `HealthcareService` |
-| Health alert | `DetectedIssue` |
-| Clinic notification | `Communication` |
-| Trigger for external observations | `Subscription` (rest-hook) |
+## FHIR resource model
+
+| Concept | FHIR resource | Profile |
+|---|---|---|
+| Stream site | `Location` | `LocationOah` |
+| Citizen report | `Observation` | `ObservationIndicatorsOah` |
+| Report photo | `Media` + `Binary` | Core R4 |
+| District cohort | `Group` | `GroupOah` |
+| Baseline health data | `Observation` | `ObservationHealthMeasureOah` |
+| Clinic and the sites it serves | `Organization` + `HealthcareService` | Core R4 |
+| Health alert | `DetectedIssue` | Core R4 |
+| Clinic notification | `Communication` | Core R4 |
+| Trigger for external observations | `Subscription` (rest-hook) | Core R4 |
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#fhir-resource-model). API contract: [docs/API.md](docs/API.md).
 
+## Risk rules
+
+| Risk | Trigger | Clinics told to watch for |
+|---|---|---|
+| Algal bloom | Filamentous algae **and** water ≥ 25 °C **and** ≤ 5 mm rain in 7 days | Skin irritation, gastrointestinal symptoms after contact |
+| Sewage overflow | ≥ 20 mm rain in 24 h **and** foam/colour/smell within 48 h | Gastrointestinal infections |
+| Mosquito breeding | Diptera **and** water ≥ 20 °C **and** rain in the last 7 days | Vector-borne disease watch |
+| Low oxygen | Dissolved O₂ < 4 mg/L | *Environmental only — no clinic alert* |
+
+> Demonstration heuristics for the hackathon, to be calibrated with OAH ecologists. Not clinical guidance. Clinics and health figures are synthetic; only the stream sites are real.
+
 ## Standards validation
 
-Every change to `api/` is checked against the OneAquaHealth IG with the official HL7 validator (`.github/workflows/validate-fhir.yml`), and CI fails on any profile error.
-
-- **What is validated:** resources produced by the API's own code, not hand-written copies: a citizen report `Observation` for every indicator and value (`ObservationIndicatorsOah`), the seed sites (`LocationOah`), district cohorts (`GroupOah`), baseline health data (`ObservationHealthMeasureOah`), clinics (`Organization`, `HealthcareService`), our `CodeSystem`s, and an alert's `DetectedIssue` and `Communication` (core FHIR R4).
+- **What:** resources produced by the API's own code — not hand-written copies — for every indicator and value, plus seed sites, cohorts, baselines, clinics, our `CodeSystem`s, and an alert's `DetectedIssue` and `Communication`.
 - **Against:** FHIR 4.0.1 and the OAH IG built from source with SUSHI at [`hl7-eu/oah@b907cf0`](https://github.com/hl7-eu/oah/tree/b907cf0869b59d82d9138b3d147fca66f333d911), using HL7 `validator_cli` 6.10.4.
-- **Run it:** `cd validation && npm install && npm test` (needs Node.js 22+ and Java 21). Details and known limitations: [validation/README.md](validation/README.md).
+- **Where:** `.github/workflows/validate-fhir.yml`, on every change to `api/`. **Current result: 0 errors.**
+- **Run it:** `cd validation && npm install && npm test` (Node.js 22+ and Java 21). See [validation/README.md](validation/README.md).
 
 ## Repository layout
 
 | Path | What it is |
 |---|---|
 | `web/` | Next.js 16 frontend, deployed on Vercel (root directory `web`) |
-| `api/` | Fastify + TypeScript API: FHIR mapping, report intake, alerts |
+| `api/` | Fastify + TypeScript API: FHIR mapping, report intake, risk engine, alerts |
 | `fhir/` | HAPI FHIR configuration overrides |
-| `deploy/` | Docker Compose stack, Caddy site block and deploy script for the backend host |
+| `deploy/` | Docker Compose stack, Caddy site block, deploy script for the backend host |
 | `validation/` | OAH IG build and FHIR profile validation of the API's resources |
-| `.github/workflows/` | CI (typecheck, lint, build), FHIR validation and backend deployment |
+| `.github/workflows/` | CI, FHIR validation, backend deployment |
+| `docs/` | Plan, architecture, API contract, demo script, submission text |
 
-## Running locally
+## Run it locally
 
-Requirements: Node.js 22+ and Docker.
+Requirements: **Node.js 22+** and **Docker**.
 
 ```bash
 # Backend: HAPI (localhost:8080/fhir) + Postgres + API (localhost:3001)
@@ -87,12 +129,14 @@ POSTGRES_PASSWORD=dev docker compose -f deploy/compose.yml -f deploy/compose.loc
 cd web && npm install && NEXT_PUBLIC_API_URL=http://localhost:3001 npm run dev
 ```
 
-HAPI takes a minute or two to start the first time while it creates its database schema.
+HAPI takes a minute or two on first start while it creates its schema. The API seeds demo data on every start, so the map is populated straight away.
 
 ## Deployment
 
-- **Frontend:** Vercel builds `web/` on every push.
-- **Backend:** pushing to `main` with changes under `api/`, `fhir/` or `deploy/` runs `.github/workflows/deploy-backend.yml`. It signs in to AWS with GitHub OIDC (no stored keys), then uses SSM Run Command to update the repository on the host and run `deploy/deploy.sh`, which rebuilds the stack and reloads Caddy. A smoke test checks `/health` afterwards.
+| Part | How |
+|---|---|
+| Frontend | Vercel builds `web/` on every push |
+| Backend | A push to `main` touching `api/`, `fhir/` or `deploy/` runs `deploy-backend.yml`: GitHub OIDC → AWS (no stored keys) → SSM Run Command → `deploy/deploy.sh` rebuilds the stack and reloads Caddy, then a `/health` smoke test |
 
 ## License
 

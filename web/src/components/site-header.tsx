@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DropletsIcon } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { MOCK } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,7 @@ export function SiteHeader() {
             })}
           </ul>
         </nav>
+        <ThemeToggle />
       </div>
     </header>
   );

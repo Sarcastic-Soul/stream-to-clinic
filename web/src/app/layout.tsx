@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ReportQueueBanner } from "@/components/report-queue-banner";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { THEME_COLOR, THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,16 +25,22 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
 };
 
-export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
-};
+// One value, kept in step with the chosen theme by the inline script and the
+// theme toggle; a media-based list would ignore an explicit light/dark choice.
+export const viewport: Viewport = { themeColor: THEME_COLOR.light };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      data-theme="light"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <head>
+        {/* Applies the saved theme while the HTML is parsed, before the first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         {/* No reload when the connection returns: the report queue flushes in place instead. */}
         <SerwistProvider
