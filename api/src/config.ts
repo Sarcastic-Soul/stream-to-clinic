@@ -25,7 +25,7 @@ export const config = {
   bedrockRegion: process.env.BEDROCK_REGION || "us-east-1",
   // Model IDs to try in order, comma-separated: a model that is throttled or unavailable hands the
   // request to the next. BEDROCK_MODEL=off turns both features off.
-  bedrockModels: (process.env.BEDROCK_MODEL || "zai.glm-4.7-flash,mistral.ministral-3-8b-instruct")
+  bedrockModels: (process.env.BEDROCK_MODEL || "zai.glm-4.7-flash,mistral.ministral-3-14b-instruct")
     .split(",")
     .map((m) => m.trim())
     .filter((m) => m && m !== "off"),
