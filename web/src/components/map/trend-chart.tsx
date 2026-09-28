@@ -1,7 +1,8 @@
 "use client";
 
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { formatDateTime, formatShortDate, unitLabel } from "@/lib/format";
+import { useTranslate } from "@/hooks/use-locale";
+import { formatDateTime, formatShortDate, indicatorLabel, unitLabel } from "@/lib/format";
 import type { Indicator, ObservationSummary } from "@/lib/types";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function TrendChart({ indicator, observations }: Props) {
+  const t = useTranslate();
   const data = observations
     .filter((o): o is ObservationSummary & { value: number } => typeof o.value === "number")
     .map((o) => ({ t: Date.parse(o.observedAt), value: o.value }))
@@ -19,12 +21,19 @@ export function TrendChart({ indicator, observations }: Props) {
   const values = data.map((d) => d.value);
   const unit = unitLabel(indicator);
   const withUnit = (value: number) => `${value} ${unit}`.trim();
-  const summary = `${indicator.display}: ${data.length} readings from ${withUnit(Math.min(...values))} to ${withUnit(Math.max(...values))}, latest ${withUnit(values.at(-1)!)}.`;
+  const name = indicatorLabel(t, indicator);
+  const summary = t("trends.map.chartSummary", {
+    indicator: name,
+    count: data.length,
+    min: withUnit(Math.min(...values)),
+    max: withUnit(Math.max(...values)),
+    latest: withUnit(values.at(-1)!),
+  });
 
   return (
     <figure className="space-y-1">
       <figcaption className="text-sm font-medium">
-        {indicator.display} {unit && <span className="font-normal text-muted-foreground">({unit})</span>}
+        {name} {unit && <span className="font-normal text-muted-foreground">({unit})</span>}
       </figcaption>
       <p className="sr-only">{summary}</p>
       <div className="h-32 w-full text-muted-foreground" aria-hidden>
@@ -50,8 +59,8 @@ export function TrendChart({ indicator, observations }: Props) {
               width={48}
             />
             <Tooltip
-              labelFormatter={(t) => formatDateTime(new Date(Number(t)).toISOString())}
-              formatter={(value) => [withUnit(Number(value)), indicator.display]}
+              labelFormatter={(time) => formatDateTime(new Date(Number(time)).toISOString())}
+              formatter={(value) => [withUnit(Number(value)), name]}
               contentStyle={{
                 background: "var(--popover)",
                 color: "var(--popover-foreground)",

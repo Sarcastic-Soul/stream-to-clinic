@@ -4,14 +4,16 @@ import { useState } from "react";
 import { CircleAlertIcon, LoaderCircleIcon, ReplyIcon, ShieldCheckIcon } from "lucide-react";
 import { ChoiceGroup } from "@/components/choice-group";
 import { FhirLink } from "@/components/fhir-link";
+import { InfoTip } from "@/components/info-tip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslate } from "@/hooks/use-locale";
 import { useSmartSession } from "@/hooks/use-smart-session";
 import { api, ApiError, MOCK } from "@/lib/api";
 import { signOutSmart } from "@/lib/smart";
-import { ACK_ACTIONS, ACK_ACTION_IDS, formatDateTime } from "@/lib/format";
+import { ACK_ACTION_IDS, ackLabel, formatDateTime } from "@/lib/format";
 import type { AckAction, AlertSummary, ClinicSummary } from "@/lib/types";
 
 interface Props {
@@ -24,6 +26,7 @@ interface Props {
 // A notified clinic replies: what it did about the alert. The reply is stored as a FHIR
 // Communication pointing back at the one we sent, so the loop closes in standard resources.
 export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
+  const t = useTranslate();
   const [action, setAction] = useState<AckAction | null>(null);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -45,7 +48,7 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
       setNote("");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) signOutSmart();
-      setError(err instanceof Error ? err.message : "Could not send the response.");
+      setError(err instanceof Error ? err.message : t("clinic.ack.failed"));
     } finally {
       setSubmitting(false);
     }
@@ -53,22 +56,19 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
 
   return (
     <section aria-labelledby="response-heading" className="space-y-3 rounded-xl border p-4">
-      <div className="space-y-1">
+      <div className="flex items-center gap-2">
         <h2 id="response-heading" className="flex items-center gap-2 font-semibold">
           <ReplyIcon className="size-5" aria-hidden />
-          Clinic response
+          {t("clinic.ack.title")}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          What the notified clinics did. Each response is a FHIR <code>Communication</code> linked to the alert, so
-          the environmental side can see which warnings led to action.
-        </p>
+        <InfoTip label={t("common.moreInfo")}>{t("clinic.ack.info")}</InfoTip>
       </div>
 
       {replies.length > 0 && (
         <ul className="space-y-2">
           {replies.map((reply) => (
             <li key={reply.id} className="rounded-lg border bg-card p-3 text-sm">
-              <p className="font-medium">{reply.actionLabel}</p>
+              <p className="font-medium">{ackLabel(t, reply.action)}</p>
               <p className="text-muted-foreground">
                 {reply.clinicName} · <time dateTime={reply.at}>{formatDateTime(reply.at)}</time>
               </p>
@@ -76,7 +76,7 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
               {reply.signedBy && (
                 <p className="mt-1 flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400" data-testid="reply-signed">
                   <ShieldCheckIcon className="size-4" aria-hidden />
-                  Signed by {reply.signedBy.name}
+                  {t("clinic.ack.signedBy", { name: reply.signedBy.name })}
                 </p>
               )}
               <p className="mt-1 flex flex-wrap gap-x-3">
@@ -89,20 +89,18 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
       )}
 
       {!notified ? (
-        <p className="text-sm text-muted-foreground">
-          Environmental alerts are not sent to clinics, so there is nothing to respond to.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("common.environmentalInfo")}</p>
       ) : !clinic ? (
         <p className="text-sm text-muted-foreground">
-          {replies.length === 0 && "No response yet. "}
-          Open this alert from a clinic&apos;s dashboard to respond to it.
+          {replies.length === 0 && `${t("clinic.ack.noneYet")} `}
+          {t("clinic.ack.openFromClinic")}
         </p>
       ) : (
         <form onSubmit={submit} className="space-y-3">
           <ChoiceGroup
-            legend={`Respond as ${clinic.name}`}
+            legend={t("clinic.ack.respondAs", { name: clinic.name })}
             name="ack-action"
-            options={ACK_ACTION_IDS.map((id) => ({ value: id, label: ACK_ACTIONS[id] }))}
+            options={ACK_ACTION_IDS.map((id) => ({ value: id, label: ackLabel(t, id) }))}
             value={action}
             onChange={setAction}
             columns="grid-cols-1 sm:grid-cols-2"
@@ -110,7 +108,7 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="ack-note">
-              Note <span className="font-normal text-muted-foreground">(optional)</span>
+              {t("clinic.ack.note")} <span className="font-normal text-muted-foreground">{t("clinic.ack.optional")}</span>
             </Label>
             <Textarea
               id="ack-note"
@@ -118,7 +116,7 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
               onChange={(event) => setNote(event.target.value)}
               maxLength={500}
               rows={2}
-              placeholder="Cases seen, advice given, who was told"
+              placeholder={t("clinic.ack.placeholder")}
               className="text-base"
             />
           </div>
@@ -128,10 +126,13 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
               {signer ? (
                 <>
                   <ShieldCheckIcon className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                  Signed as {signer.practitionerName} with SMART on FHIR
+                  {t("clinic.ack.signedAs", { name: signer.practitionerName })} · SMART on FHIR
                 </>
               ) : (
-                "Not signed in: the reply is sent for the clinic without a clinician's name."
+                <>
+                  {t("clinic.ack.unsigned")}
+                  <InfoTip label={t("common.moreInfo")}>{t("clinic.ack.unsignedInfo")}</InfoTip>
+                </>
               )}
             </p>
           )}
@@ -139,14 +140,14 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
           {error && (
             <Alert variant="destructive" role="alert">
               <CircleAlertIcon />
-              <AlertTitle>Response not sent</AlertTitle>
+              <AlertTitle>{t("clinic.ack.notSent")}</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           <Button type="submit" disabled={!action || submitting}>
             {submitting && <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />}
-            {submitting ? "Sending…" : "Send response"}
+            {submitting ? t("clinic.ack.sending") : t("clinic.ack.send")}
           </Button>
         </form>
       )}

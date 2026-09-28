@@ -3,32 +3,34 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { DropletsIcon, XIcon } from "lucide-react";
+import { useTranslate } from "@/hooks/use-locale";
 import type { Arrival } from "@/hooks/use-live-alerts";
-import { RISK } from "@/lib/format";
+import { RISK, alertTitle } from "@/lib/format";
 import type { LiveStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const STATUS: Record<LiveStatus, { label: string; dot: string; text: string }> = {
-  live: { label: "Live", dot: "bg-emerald-500", text: "text-emerald-700 dark:text-emerald-300" },
-  connecting: { label: "Connecting", dot: "bg-amber-400", text: "text-amber-700 dark:text-amber-300" },
-  offline: { label: "Offline", dot: "bg-muted-foreground", text: "text-muted-foreground" },
+const STATUS: Record<LiveStatus, { dot: string; text: string }> = {
+  live: { dot: "bg-emerald-500", text: "text-emerald-700 dark:text-emerald-300" },
+  connecting: { dot: "bg-amber-400", text: "text-amber-700 dark:text-amber-300" },
+  offline: { dot: "bg-muted-foreground", text: "text-muted-foreground" },
 };
 
 /** Small pill showing whether new alerts will arrive on their own. */
 export function LiveIndicator({ status, className }: { status: LiveStatus; className?: string }) {
+  const t = useTranslate();
   const s = STATUS[status];
   return (
     <span
       id="live-status"
       data-status={status}
       className={cn("inline-flex items-center gap-1.5 rounded-full border bg-background/70 px-2 py-0.5 text-xs font-medium", s.text, className)}
-      title={status === "live" ? "New alerts appear here the moment they are raised" : undefined}
+      title={status === "live" ? t("clinic.live.hint") : undefined}
     >
       <span className="relative flex size-2" aria-hidden>
         {status === "live" && <span className={cn("absolute inline-flex size-full animate-ping rounded-full opacity-60", s.dot)} />}
         <span className={cn("relative inline-flex size-2 rounded-full", s.dot)} />
       </span>
-      {s.label}
+      {t(`clinic.live.${status}`)}
     </span>
   );
 }
@@ -50,6 +52,7 @@ export function AlertBanner({
   inFrame?: boolean;
   autoHideMs?: number;
 }) {
+  const t = useTranslate();
   const { alert } = arrival;
   useEffect(() => {
     const timer = setTimeout(onDismiss, autoHideMs);
@@ -72,22 +75,22 @@ export function AlertBanner({
         </span>
         <Link href={`/alerts/${encodeURIComponent(alert.id)}?clinic=${encodeURIComponent(clinicId)}`} className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Stream-to-Clinic <span aria-hidden>·</span> now
+            Stream-to-Clinic <span aria-hidden>·</span> {t("clinic.banner.now")}
           </p>
           <p className="flex items-center gap-2 font-semibold">
             <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: RISK[alert.level].color }} aria-hidden />
-            <span className="truncate">{alert.title}</span>
+            <span className="truncate">{alertTitle(t, alert)}</span>
           </p>
           <p className="line-clamp-2 text-sm text-muted-foreground">
             {alert.siteName}
-            {alert.watchFor ? ` · Watch for: ${alert.watchFor}` : ""}
+            {alert.watchFor ? ` · ${t("clinic.banner.watchFor", { text: alert.watchFor })}` : ""}
           </p>
         </Link>
         <button
           type="button"
           onClick={onDismiss}
           className="absolute top-2 right-2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Dismiss notification"
+          aria-label={t("clinic.banner.dismiss")}
         >
           <XIcon className="size-4" />
         </button>

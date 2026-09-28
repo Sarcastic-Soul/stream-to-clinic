@@ -14,7 +14,7 @@ import MapGL, {
 } from "react-map-gl/maplibre";
 import { MaximizeIcon } from "lucide-react";
 import { useTranslate } from "@/hooks/use-locale";
-import { RISK } from "@/lib/format";
+import { RISK, riskLabel } from "@/lib/format";
 import type { SiteSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { clusterSites, type SiteCluster } from "./cluster";
@@ -121,8 +121,8 @@ export default function SiteMap({ sites, selectedId, onSelect }: Props) {
         const isSelected = !grouped && cluster.sites[0].id === selectedId;
         const showLabel = !grouped && (isSelected || (zoom ?? 0) >= LABEL_FROM_ZOOM);
         const label = grouped
-          ? `${cluster.sites.length} sites: ${cluster.sites.map((s) => s.name).join(", ")}`
-          : `${cluster.sites[0].name}, ${RISK[cluster.riskLevel].label}`;
+          ? t("trends.map.cluster", { count: cluster.sites.length, names: cluster.sites.map((s) => s.name).join(", ") })
+          : `${cluster.sites[0].name}, ${riskLabel(t, cluster.riskLevel)}`;
 
         return (
           <Marker

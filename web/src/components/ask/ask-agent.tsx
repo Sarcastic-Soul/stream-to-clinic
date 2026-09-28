@@ -13,30 +13,28 @@ import {
   PlugIcon,
   SparklesIcon,
 } from "lucide-react";
+import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
+import { useTranslate } from "@/hooks/use-locale";
 import { api, ApiError, FHIR_URL, MCP_URL } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import type { MessageKey, Translate } from "@/lib/i18n";
 import type { AgentAnswer, AgentStep } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export const SUGGESTIONS = [
-  "Which stream sites have an active alert, and why?",
-  "Is any stream warming up or losing oxygen?",
-  "Which clinics were warned, and have they answered?",
-  "What did citizens report at Almyros this week?",
-];
+// Message keys, so each suggestion is asked in the reader's language; the agent answers in the
+// language of the question.
+export const SUGGESTIONS: MessageKey[] = ["ask.suggestion1", "ask.suggestion2", "ask.suggestion3", "ask.suggestion4"];
 
-const TOOL_LABEL: Record<string, string> = {
-  list_sites: "Stream sites",
-  list_clinics: "Clinics",
-  list_alerts: "Active alerts",
-  get_trends: "Catchment trends",
-  site_observations: "Citizen readings",
-  search_fhir: "FHIR search",
-};
+/** The tool's name in the reader's language; the raw name for a tool the page does not know yet. */
+function toolLabel(t: Translate, tool: string): string {
+  const key = `ask.tool.${tool}` as MessageKey;
+  const label = t(key);
+  return label === key ? tool : label;
+}
 
 // What the loading state walks through while the one request is out. The real steps replace it.
-const THINKING = ["Reading the question", "Querying the FHIR server", "Writing the answer from the results"];
+const THINKING: MessageKey[] = ["ask.thinking1", "ask.thinking2", "ask.thinking3"];
 
 /** "https://host/fhir/DetectedIssue?code=…" → "GET DetectedIssue?code=…", shortened for the eye. */
 function queryLabel(url: string): string {
@@ -80,6 +78,7 @@ function AnswerText({ text }: { text: string }) {
 }
 
 function Thinking() {
+  const t = useTranslate();
   const [shown, setShown] = useState(1);
   useEffect(() => {
     const timer = setInterval(() => setShown((n) => Math.min(n + 1, THINKING.length)), 1600);
@@ -89,17 +88,17 @@ function Thinking() {
     <div data-testid="agent-loading" role="status" aria-live="polite" className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
       <div className="flex items-center gap-2 text-sm font-medium">
         <LoaderCircleIcon className="size-4 animate-spin text-sky-600 dark:text-sky-400" aria-hidden />
-        Working on it…
+        {t("ask.working")}
       </div>
       <ol className="space-y-2">
-        {THINKING.slice(0, shown).map((label, i) => (
-          <li key={label} className="flex animate-in items-center gap-2 text-sm text-muted-foreground fade-in slide-in-from-bottom-1">
+        {THINKING.slice(0, shown).map((key, i) => (
+          <li key={key} className="flex animate-in items-center gap-2 text-sm text-muted-foreground fade-in slide-in-from-bottom-1">
             {i < shown - 1 ? (
               <CheckIcon className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
             ) : (
               <span className="size-2 animate-pulse rounded-full bg-sky-500" aria-hidden />
             )}
-            {label}
+            {t(key)}
           </li>
         ))}
       </ol>
@@ -111,6 +110,7 @@ function Thinking() {
 }
 
 function Step({ step, index }: { step: AgentStep; index: number }) {
+  const t = useTranslate();
   return (
     <li
       data-testid="agent-step"
@@ -128,7 +128,7 @@ function Step({ step, index }: { step: AgentStep; index: number }) {
       </div>
       <div className="min-w-0 flex-1 space-y-1.5 pb-5">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">{TOOL_LABEL[step.tool] ?? step.tool}</span>
+          <span className="font-medium">{toolLabel(t, step.tool)}</span>
           <code className="text-xs text-muted-foreground">{step.tool}</code>
         </div>
         <p className={cn("text-sm", step.error ? "text-destructive" : "text-muted-foreground")}>{step.summary}</p>
@@ -145,7 +145,7 @@ function Step({ step, index }: { step: AgentStep; index: number }) {
                   <span className="shrink-0 font-semibold text-emerald-700 dark:text-emerald-400">GET</span>
                   <span className="truncate">{queryLabel(url)}</span>
                   <ExternalLinkIcon className="size-3 shrink-0 opacity-60 group-hover:opacity-100" aria-hidden />
-                  <span className="sr-only">(opens the FHIR query in a new tab)</span>
+                  <span className="sr-only">{t("common.opensNewTab")}</span>
                 </a>
               </li>
             ))}
@@ -157,6 +157,7 @@ function Step({ step, index }: { step: AgentStep; index: number }) {
 }
 
 function McpCard() {
+  const t = useTranslate();
   const [copied, setCopied] = useState(false);
   async function copy() {
     try {
@@ -169,21 +170,20 @@ function McpCard() {
   }
   return (
     <section aria-labelledby="mcp-heading" className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
-      <h2 id="mcp-heading" className="flex items-center gap-2 font-semibold">
-        <PlugIcon className="size-5 text-violet-600 dark:text-violet-400" aria-hidden />
-        Bring your own assistant
-      </h2>
-      <p className="text-sm text-muted-foreground">
-        The same read-only tools are an MCP server. Add this URL as a remote MCP server (a custom connector) in Claude or any
-        MCP client, and ask it about the streams with your own model.
-      </p>
+      <div className="flex items-center gap-1.5">
+        <h2 id="mcp-heading" className="flex items-center gap-2 font-semibold">
+          <PlugIcon className="size-5 text-violet-600 dark:text-violet-400" aria-hidden />
+          {t("ask.mcpTitle")}
+        </h2>
+        <InfoTip label={t("common.moreInfo")}>{t("ask.mcpInfo")}</InfoTip>
+      </div>
       <div className="flex items-center gap-2 rounded-lg border bg-muted/50 p-1.5 pl-3">
         <code id="mcp-url" className="min-w-0 flex-1 truncate text-sm">
           {MCP_URL}
         </code>
         <Button type="button" size="sm" variant="outline" onClick={copy}>
           {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? t("ask.copied") : t("ask.copy")}
         </Button>
       </div>
     </section>
@@ -191,6 +191,7 @@ function McpCard() {
 }
 
 export function AskAgent({ initialQuestion = "" }: { initialQuestion?: string }) {
+  const t = useTranslate();
   const [question, setQuestion] = useState(initialQuestion);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<AgentAnswer | null>(null);
@@ -209,10 +210,10 @@ export function AskAgent({ initialQuestion = "" }: { initialQuestion?: string })
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 503
-          ? "No model is configured on this server, so the agent is switched off. The MCP server below works without one."
+          ? t("ask.noModel")
           : err instanceof Error
             ? err.message
-            : "The question could not be answered.",
+            : t("ask.failed"),
       );
     } finally {
       setBusy(false);
@@ -232,6 +233,11 @@ export function AskAgent({ initialQuestion = "" }: { initialQuestion?: string })
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-1.5">
+        <h1 className="text-2xl font-semibold">{t("ask.title")}</h1>
+        <InfoTip label={t("common.moreInfo")}>{t("ask.info")}</InfoTip>
+      </div>
+
       <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-sky-50 via-cyan-50 to-emerald-50 p-5 shadow-sm sm:p-6 dark:from-sky-950/60 dark:via-cyan-950/40 dark:to-emerald-950/40">
         <div
           className="pointer-events-none absolute -top-16 -right-16 size-56 rounded-full bg-sky-300/30 blur-3xl dark:bg-sky-500/20"
@@ -240,7 +246,7 @@ export function AskAgent({ initialQuestion = "" }: { initialQuestion?: string })
         <form onSubmit={submit} className="relative space-y-4">
           <label htmlFor="agent-question" className="flex items-center gap-2 font-semibold">
             <SparklesIcon className="size-5 text-sky-600 dark:text-sky-400" aria-hidden />
-            Ask a question about the streams
+            {t("ask.label")}
           </label>
           <div className="flex items-center gap-2 rounded-2xl border bg-card p-1.5 pl-4 shadow-sm focus-within:ring-3 focus-within:ring-ring/50">
             <input
@@ -248,26 +254,26 @@ export function AskAgent({ initialQuestion = "" }: { initialQuestion?: string })
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               maxLength={500}
-              placeholder="e.g. Which stream is losing oxygen?"
+              placeholder={t("ask.placeholder")}
               autoComplete="off"
               className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
             />
-            <Button id="agent-ask" type="submit" size="icon-lg" className="rounded-xl" disabled={busy || question.trim().length < 3} aria-label="Ask">
+            <Button id="agent-ask" type="submit" size="icon-lg" className="rounded-xl" disabled={busy || question.trim().length < 3} aria-label={t("ask.submit")}>
               {busy ? <LoaderCircleIcon className="animate-spin" /> : <ArrowUpIcon />}
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2" aria-label="Suggested questions">
-            {SUGGESTIONS.map((s, i) => (
+          <div className="flex flex-wrap gap-2" aria-label={t("ask.suggested")}>
+            {SUGGESTIONS.map((key, i) => (
               <button
-                key={s}
+                key={key}
                 id={`suggestion-${i + 1}`}
                 data-testid="agent-suggestion"
                 type="button"
                 disabled={busy}
-                onClick={() => void ask(s)}
+                onClick={() => void ask(t(key))}
                 className="rounded-full border bg-card/80 px-3 py-1.5 text-left text-sm shadow-xs transition-all hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-sm disabled:opacity-50"
               >
-                {s}
+                {t(key)}
               </button>
             ))}
           </div>
@@ -297,22 +303,22 @@ export function AskAgent({ initialQuestion = "" }: { initialQuestion?: string })
                 </div>
                 <div className="min-w-0 space-y-0.5">
                   <h2 id="answer-heading" className="font-semibold">
-                    Answer
+                    {t("ask.answer")}
                   </h2>
                   <p className="text-sm text-muted-foreground">{result.question}</p>
                 </div>
               </div>
               <AnswerText text={result.answer} />
               <p className="border-t pt-3 text-xs text-muted-foreground">
-                Written by {result.model} on <time dateTime={result.answeredAt}>{formatDateTime(result.answeredAt)}</time>, from{" "}
-                {queries} FHIR {queries === 1 ? "query" : "queries"} it ran itself. It can only read; it never changes a risk level.
+                {result.model} · <time dateTime={result.answeredAt}>{formatDateTime(result.answeredAt)}</time> ·{" "}
+                {queries === 1 ? t("ask.searchesOne") : t("ask.searchesMany", { count: queries })}
               </p>
             </section>
 
             <section id="agent-steps" aria-labelledby="steps-heading" className="space-y-4">
               <h2 id="steps-heading" className="flex items-center gap-2 font-semibold">
                 <DatabaseIcon className="size-5 text-sky-600 dark:text-sky-400" aria-hidden />
-                How it got there
+                {t("ask.steps")}
               </h2>
               {result.steps.length ? (
                 <ol className="relative before:absolute before:top-4 before:bottom-6 before:left-4 before:w-px before:bg-border">
@@ -321,7 +327,7 @@ export function AskAgent({ initialQuestion = "" }: { initialQuestion?: string })
                   ))}
                 </ol>
               ) : (
-                <p className="text-sm text-muted-foreground">It answered without querying the data.</p>
+                <p className="text-sm text-muted-foreground">{t("ask.noSteps")}</p>
               )}
             </section>
           </>

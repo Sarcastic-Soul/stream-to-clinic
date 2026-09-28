@@ -259,6 +259,7 @@ function alertSteps(t: T, alert: JourneyAlert, reportedAt: string): Step[] {
 }
 
 function Timeline({ steps }: { steps: Step[] }) {
+  const t = useTranslate();
   return (
     <ol className="relative space-y-4 before:absolute before:top-5 before:bottom-5 before:left-5 before:w-0.5 before:rounded-full before:bg-gradient-to-b before:from-sky-400 before:via-cyan-400 before:to-emerald-400">
       {steps.map((step, i) => (
@@ -303,7 +304,7 @@ function Timeline({ steps }: { steps: Step[] }) {
                   >
                     {link.label}
                     <ExternalLinkIcon className="size-3" aria-hidden />
-                    <span className="sr-only">(opens in a new tab)</span>
+                    <span className="sr-only"> {t("common.opensNewTab")}</span>
                   </a>
                 ))}
               </p>

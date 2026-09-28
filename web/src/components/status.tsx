@@ -1,15 +1,19 @@
+"use client";
+
 import { CircleAlertIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RISK } from "@/lib/format";
+import { useTranslate } from "@/hooks/use-locale";
+import { RISK, riskLabel } from "@/lib/format";
 import type { RiskLevel } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function LoadError({ error, what }: { error: Error; what: string }) {
+export function LoadError({ error }: { error: Error; what?: string }) {
+  const t = useTranslate();
   return (
     <Alert variant="destructive">
       <CircleAlertIcon />
-      <AlertTitle>Could not load {what}</AlertTitle>
+      <AlertTitle>{t("common.couldNotLoad")}</AlertTitle>
       <AlertDescription>{error.message}</AlertDescription>
     </Alert>
   );
@@ -26,6 +30,7 @@ export function LoadingRows({ rows = 3, label }: { rows?: number; label: string 
 }
 
 export function RiskBadge({ level, className }: { level: RiskLevel; className?: string }) {
+  const t = useTranslate();
   return (
     <span
       className={cn(
@@ -35,7 +40,7 @@ export function RiskBadge({ level, className }: { level: RiskLevel; className?: 
       )}
     >
       <span className="size-2 rounded-full" style={{ backgroundColor: RISK[level].color }} aria-hidden />
-      {RISK[level].label}
+      {riskLabel(t, level)}
     </span>
   );
 }

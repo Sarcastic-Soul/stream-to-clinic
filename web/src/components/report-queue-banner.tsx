@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { CircleAlertIcon, CircleCheckIcon, CloudOffIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslate } from "@/hooks/use-locale";
 import { QUEUE_EVENT, flushQueue, listQueued, type FlushOutcome, type QueuedReport } from "@/lib/report-queue";
 
 // Shown on every page: reports waiting to be sent, and what happened to them once the connection came back.
 export function ReportQueueBanner() {
+  const t = useTranslate();
   const [queued, setQueued] = useState<QueuedReport[]>([]);
   const [outcomes, setOutcomes] = useState<FlushOutcome[]>([]);
 
@@ -42,9 +44,9 @@ export function ReportQueueBanner() {
             <CloudOffIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
             <p>
               <span className="font-medium">
-                {queued.length === 1 ? "1 report queued" : `${queued.length} reports queued`}, will send when online:
+                {t(queued.length === 1 ? "common.queue.waitingOne" : "common.queue.waitingMany", { count: queued.length })}
               </span>{" "}
-              {queued.map((q) => `${q.indicatorDisplay} at ${q.siteName}`).join("; ")}.
+              {queued.map((q) => t("common.queue.item", { indicator: q.indicatorDisplay, site: q.siteName })).join("; ")}.
             </p>
           </div>
         </div>
@@ -61,15 +63,15 @@ export function ReportQueueBanner() {
               {sent.length > 0 && (
                 <p>
                   <span className="font-medium">
-                    {sent.length === 1 ? "Queued report sent" : `${sent.length} queued reports sent`}
+                    {t(sent.length === 1 ? "common.queue.sentOne" : "common.queue.sentMany", { count: sent.length })}
                   </span>
-                  {raised > 0 && ` and ${raised === 1 ? "1 alert" : `${raised} alerts`} raised`}:{" "}
+                  {raised > 0 && ` · ${t(raised === 1 ? "common.queue.raisedOne" : "common.queue.raisedMany", { count: raised })}`}:{" "}
                   {sent.map((o, i) => (
                     <span key={o.item.id}>
                       {i > 0 && "; "}
                       <a href={o.result.fhirUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                        {o.item.indicatorDisplay} at {o.item.siteName}
-                        <span className="sr-only"> (FHIR resource, opens in a new tab)</span>
+                        {t("common.queue.item", { indicator: o.item.indicatorDisplay, site: o.item.siteName })}
+                        <span className="sr-only"> {t("common.opensNewTab")}</span>
                       </a>
                     </span>
                   ))}
@@ -79,13 +81,13 @@ export function ReportQueueBanner() {
               {failed.map((o) => (
                 <p key={o.item.id}>
                   <span className="font-medium">
-                    Not sent: {o.item.indicatorDisplay} at {o.item.siteName}.
+                    {t("common.queue.notSent", { item: t("common.queue.item", { indicator: o.item.indicatorDisplay, site: o.item.siteName }) })}
                   </span>{" "}
                   {o.error}
                 </p>
               ))}
             </div>
-            <Button variant="ghost" size="icon-sm" onClick={() => setOutcomes([])} aria-label="Dismiss" className="-my-1">
+            <Button variant="ghost" size="icon-sm" onClick={() => setOutcomes([])} aria-label={t("common.dismiss")} className="-my-1">
               <XIcon />
             </Button>
           </div>

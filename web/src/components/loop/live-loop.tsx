@@ -1,24 +1,29 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIcon,
+  BatteryFullIcon,
   BellRingIcon,
   CheckIcon,
   CloudSunIcon,
+  DropletsIcon,
   FileJsonIcon,
-  HospitalIcon,
   LoaderCircleIcon,
   ShieldAlertIcon,
-  SmartphoneIcon,
+  SignalIcon,
+  WifiIcon,
 } from "lucide-react";
 import { AlertCard } from "@/components/alert-card";
 import { AlertBanner, LiveIndicator } from "@/components/clinic/live-alerts";
+import { InfoTip } from "@/components/info-tip";
 import { ReportForm } from "@/components/report/report-form";
 import { LoadingRows } from "@/components/status";
 import { useApi } from "@/hooks/use-api";
 import { useLiveAlerts, type Arrival } from "@/hooks/use-live-alerts";
+import { useTranslate } from "@/hooks/use-locale";
 import { api } from "@/lib/api";
+import type { MessageKey } from "@/lib/i18n";
 import type { ReportResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -33,16 +38,21 @@ interface Run {
 /**
  * The One Health loop on one screen: a citizen's phone on the left, the clinic's on the right, and
  * the FHIR resources passing between them in the middle, timed from Send to the clinic's banner.
+ * Below the lg breakpoint the phones drop their frames and stack: citizen, steps, clinic.
  */
 export function LiveLoop({ siteId, clinicId: requestedClinic }: { siteId: string; clinicId?: string }) {
+  const t = useTranslate();
   const clinics = useApi(api.getClinics);
   const clinic = clinics.data?.find((c) => c.id === requestedClinic) ?? clinics.data?.find((c) => c.siteIds.includes(siteId));
   const [run, setRun] = useState<Run | null>(null);
   const [banner, setBanner] = useState<Arrival | null>(null);
+  const clinicRef = useRef<HTMLElement>(null);
 
   const onArrival = useCallback((arrival: Arrival) => {
     setBanner(arrival);
     setRun((current) => (current && !current.arrival ? { ...current, arrival } : current));
+    // Stacked on a phone, the clinic is further down the page: bring it into view.
+    if (window.matchMedia("(max-width: 1023px)").matches) clinicRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
   const live = useLiveAlerts(clinic?.id, onArrival);
   const dismiss = useCallback(() => setBanner(null), []);
@@ -50,92 +60,132 @@ export function LiveLoop({ siteId, clinicId: requestedClinic }: { siteId: string
   const clinicAlert = run?.result?.alerts.find((a) => a.watchFor !== "");
   const steps = useMemo(() => stepStates(run, Boolean(clinicAlert)), [run, clinicAlert]);
   const elapsed = run?.arrival ? (run.arrival.receivedAt - run.sentAt) / 1000 : undefined;
+  const fired = run?.result?.alerts.length ?? 0;
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)_minmax(0,380px)] lg:gap-8">
-      <Phone label="Citizen scientist" sublabel="Reporting from the stream bank" icon={<SmartphoneIcon className="size-4" aria-hidden />} testId="citizen-phone">
-        <div className="px-4 pt-4 pb-8">
-          <h2 className="mb-4 text-lg font-semibold">Report what you see</h2>
-          <ReportForm
-            initialSiteId={siteId}
-            onSending={() => setRun({ sentAt: Date.now() })}
-            onReported={(result) => setRun((current) => ({ sentAt: current?.sentAt ?? Date.now(), ...current, result }))}
-          />
-        </div>
-      </Phone>
+    <div className="space-y-8 lg:space-y-10">
+      <header className="mx-auto max-w-3xl space-y-3 text-center">
+        <h1 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl lg:text-5xl">
+          {t("loop.title")}
+          <InfoTip label={t("common.moreInfo")} className="ml-2 size-6 align-[0.35em]">
+            {t("loop.info")}
+          </InfoTip>
+        </h1>
+        <p className="text-muted-foreground text-pretty sm:text-lg">
+          <span className="hidden lg:inline">{t("loop.subtitle")}</span>
+          <span className="lg:hidden">{t("loop.subtitleStacked")}</span>
+        </p>
+      </header>
 
-      <section aria-label="What happens in between" className="order-last space-y-4 lg:order-none lg:pt-16">
-        <div
-          id="loop-timer"
-          data-state={elapsed !== undefined ? "done" : run ? "running" : "idle"}
-          className={cn(
-            "rounded-2xl border p-5 text-center transition-colors duration-500",
-            elapsed !== undefined ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40" : "bg-card",
-          )}
+      <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)_360px] lg:gap-10">
+        <Phone step={1} label={t("loop.citizen")} sublabel={t("loop.citizenSub")} testId="citizen-phone">
+          <div className="px-4 pt-3 pb-6 lg:px-5">
+            <ReportForm
+              compact
+              initialSiteId={siteId}
+              onSending={() => setRun({ sentAt: Date.now() })}
+              onReported={(result) => setRun((current) => ({ sentAt: current?.sentAt ?? Date.now(), ...current, result }))}
+            />
+          </div>
+        </Phone>
+
+        <section aria-label={t("loop.steps")} className="space-y-5 lg:sticky lg:top-24 lg:pt-12">
+          <div
+            id="loop-timer"
+            data-state={elapsed !== undefined ? "done" : run ? "running" : "idle"}
+            className={cn(
+              "rounded-3xl border p-6 text-center shadow-sm transition-colors duration-500",
+              elapsed !== undefined
+                ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40"
+                : "bg-card/80 backdrop-blur",
+            )}
+          >
+            <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{t("loop.timer")}</p>
+            <div className="mt-2 flex h-14 items-center justify-center font-mono text-5xl font-bold tabular-nums">
+              {elapsed !== undefined ? (
+                <span className="text-emerald-700 dark:text-emerald-300">{elapsed.toFixed(1)} s</span>
+              ) : run && !run.result?.alerts.length && run.result ? (
+                <CheckIcon className="size-10 text-emerald-600" aria-hidden />
+              ) : run ? (
+                <LoaderCircleIcon className="size-10 animate-spin text-sky-500" aria-hidden />
+              ) : (
+                <span className="text-muted-foreground/40">0.0 s</span>
+              )}
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground" aria-live="polite">
+              {elapsed !== undefined
+                ? t("loop.timerDone", { clinic: clinic?.name ?? t("loop.theClinic") })
+                : run?.result && !clinicAlert
+                  ? t("loop.timerQuiet")
+                  : run
+                    ? t("loop.timerRunning")
+                    : t("loop.timerIdle")}
+            </p>
+          </div>
+
+          <ol className="relative grid gap-2">
+            <Step
+              state={steps.observation}
+              icon={<FileJsonIcon className="size-5" />}
+              title={t("loop.step.observation")}
+              resource="Observation"
+              info="loop.step.observationInfo"
+              href={run?.result?.fhirUrl}
+              testId="step-observation"
+            />
+            <Step
+              state={steps.engine}
+              icon={<CloudSunIcon className="size-5" />}
+              title={t("loop.step.engine")}
+              note={
+                run?.result
+                  ? fired
+                    ? t(fired === 1 ? "loop.step.engineFired" : "loop.step.engineFiredMany", { count: fired })
+                    : t("loop.step.engineQuiet")
+                  : undefined
+              }
+              info="loop.step.engineInfo"
+              testId="step-engine"
+            />
+            <Step
+              state={steps.issue}
+              icon={<ShieldAlertIcon className="size-5" />}
+              title={t("loop.step.issue")}
+              resource="DetectedIssue"
+              info="loop.step.issueInfo"
+              href={clinicAlert?.fhir.detectedIssue}
+              testId="step-issue"
+            />
+            <Step
+              state={steps.communication}
+              icon={<BellRingIcon className="size-5" />}
+              title={t("loop.step.communication")}
+              resource="Communication"
+              info="loop.step.communicationInfo"
+              href={clinicAlert?.fhir.communications[0]}
+              testId="step-communication"
+              last
+            />
+          </ol>
+        </section>
+
+        <Phone
+          ref={clinicRef}
+          step={2}
+          label={clinic?.name ?? t("loop.clinic")}
+          sublabel={clinic ? t("loop.clinicSub", { city: clinic.city }) : t("loop.loadingClinic")}
+          testId="clinic-phone"
+          overlay={banner && clinic ? <AlertBanner arrival={banner} clinicId={clinic.id} onDismiss={dismiss} inFrame autoHideMs={30_000} /> : null}
         >
-          <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">Report to clinic</p>
-          <p className="mt-1 font-mono text-4xl font-semibold tabular-nums">
-            {elapsed !== undefined ? `${elapsed.toFixed(1)} s` : run ? <LoaderCircleIcon className="mx-auto size-9 animate-spin text-sky-500" /> : "–"}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {elapsed !== undefined
-              ? `${clinic?.name ?? "The clinic"} was warned before the citizen put the phone away.`
-              : run?.result && !clinicAlert
-                ? "Stored as FHIR. No clinic-facing rule fired for this reading."
-                : "Send a report on the left and watch the clinic's phone."}
-          </p>
-        </div>
-
-        <ol className="relative space-y-3 before:absolute before:top-4 before:bottom-4 before:left-[1.35rem] before:w-px before:bg-border">
-          <Step
-            state={steps.observation}
-            icon={<FileJsonIcon className="size-4" />}
-            title="Observation"
-            detail="ObservationIndicatorsOah, OAH IG profile, with Provenance"
-            href={run?.result?.fhirUrl}
-            testId="step-observation"
-          />
-          <Step
-            state={steps.engine}
-            icon={<CloudSunIcon className="size-4" />}
-            title="Risk engine"
-            detail={
-              run?.result
-                ? run.result.alerts.length
-                  ? `${run.result.alerts.length === 1 ? "A rule fired" : `${run.result.alerts.length} rules fired`}: ${run.result.alerts.map((a) => a.title).join(", ")}`
-                  : "Every rule checked; none fired"
-                : "Recent reports + live Open-Meteo weather, every step explained"
-            }
-            testId="step-engine"
-          />
-          <Step
-            state={steps.issue}
-            icon={<ShieldAlertIcon className="size-4" />}
-            title="DetectedIssue"
-            detail="The alert, citing the Observations as evidence"
-            href={clinicAlert?.fhir.detectedIssue}
-            testId="step-issue"
-          />
-          <Step
-            state={steps.communication}
-            icon={<BellRingIcon className="size-4" />}
-            title="Communication → clinic"
-            detail="Sent to every clinic serving the stream, delivered live to its open app"
-            href={clinicAlert?.fhir.communications[0]}
-            testId="step-communication"
-          />
-        </ol>
-      </section>
-
-      <Phone
-        label={clinic?.name ?? "Clinic"}
-        sublabel={clinic ? `Primary care · ${clinic.city}` : "Loading"}
-        icon={<HospitalIcon className="size-4" aria-hidden />}
-        testId="clinic-phone"
-        overlay={banner && clinic ? <AlertBanner arrival={banner} clinicId={clinic.id} onDismiss={dismiss} inFrame autoHideMs={30_000} /> : null}
-      >
-        {clinic ? <ClinicScreen clinicId={clinic.id} status={live.status} arrivals={live.arrivals} /> : <div className="p-4"><LoadingRows rows={3} label="Loading clinic" /></div>}
-      </Phone>
+          {clinic ? (
+            <ClinicScreen clinicId={clinic.id} status={live.status} arrivals={live.arrivals} />
+          ) : (
+            <div className="p-4">
+              <LoadingRows rows={3} label={t("loop.loadingClinic")} />
+            </div>
+          )}
+        </Phone>
+      </div>
     </div>
   );
 }
@@ -147,86 +197,155 @@ function stepStates(run: Run | null, clinicFacing: boolean): Record<"observation
   return { observation: "done", engine: "done", issue: "done", communication: run.arrival ? "done" : "active" };
 }
 
-function Step({ state, icon, title, detail, href, testId }: { state: StepState; icon: ReactNode; title: string; detail: string; href?: string; testId: string }) {
+function Step({
+  state,
+  icon,
+  title,
+  note,
+  resource,
+  info,
+  href,
+  testId,
+  last = false,
+}: {
+  state: StepState;
+  icon: ReactNode;
+  title: string;
+  note?: string;
+  resource?: string;
+  info: MessageKey;
+  href?: string;
+  testId: string;
+  last?: boolean;
+}) {
+  const t = useTranslate();
   return (
-    <li data-testid={testId} data-state={state} className="relative flex gap-3">
+    <li data-testid={testId} data-state={state} className="relative flex items-center gap-4">
+      {/* The line joining this step to the next one fills in once this step is done. */}
+      {!last && (
+        <span
+          className={cn(
+            "absolute top-12 left-6 h-[calc(100%-2.5rem)] w-0.5 -translate-x-1/2 rounded-full transition-colors duration-500",
+            state === "done" ? "bg-emerald-400" : "bg-border",
+          )}
+          aria-hidden
+        />
+      )}
       <span
         className={cn(
-          "relative z-10 flex size-11 shrink-0 items-center justify-center rounded-full border-2 bg-background transition-all duration-500",
-          state === "done" && "border-emerald-500 bg-emerald-500 text-white",
+          "relative z-10 flex size-12 shrink-0 items-center justify-center rounded-2xl border-2 bg-background transition-all duration-500",
+          state === "done" && "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/30",
           state === "active" && "border-sky-500 text-sky-600 dark:text-sky-400",
           (state === "idle" || state === "skipped") && "text-muted-foreground",
         )}
       >
-        {state === "active" && <span className="absolute inset-0 animate-ping rounded-full border-2 border-sky-400 opacity-50" aria-hidden />}
-        {state === "done" ? <CheckIcon className="size-5" /> : icon}
+        {state === "active" && <span className="absolute inset-0 animate-ping rounded-2xl border-2 border-sky-400 opacity-50" aria-hidden />}
+        {state === "done" ? <CheckIcon className="size-6" /> : icon}
       </span>
-      <div className={cn("min-w-0 flex-1 rounded-xl border bg-card px-3 py-2 transition-opacity duration-500", state === "idle" || state === "skipped" ? "opacity-55" : "opacity-100")}>
-        <p className="font-mono text-sm font-semibold">
-          {href ? (
-            <a href={href} target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4 hover:text-sky-700 dark:hover:text-sky-300">
-              {title}
+      <div className={cn("flex min-w-0 flex-1 items-center gap-2 py-3 transition-opacity duration-500", (state === "idle" || state === "skipped") && "opacity-50")}>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{title}</p>
+          {note && <p className="text-sm text-muted-foreground">{note}</p>}
+        </div>
+        {resource &&
+          (href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              title={t("loop.openRecord")}
+              className="rounded-md bg-sky-100 px-2 py-0.5 font-mono text-xs font-medium text-sky-800 underline-offset-2 hover:underline dark:bg-sky-950 dark:text-sky-200"
+            >
+              {resource}
+              <span className="sr-only"> {t("common.opensNewTab")}</span>
             </a>
           ) : (
-            title
-          )}
-        </p>
-        <p className="text-xs text-muted-foreground">{detail}</p>
+            <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">{resource}</span>
+          ))}
+        <InfoTip label={t("common.moreInfo")} side="left">
+          {t(info)}
+        </InfoTip>
       </div>
     </li>
   );
 }
 
+// A phone on wide screens (frame, status bar, scrolling screen); a plain card when stacked.
 function Phone({
+  ref,
+  step,
   label,
   sublabel,
-  icon,
   children,
   overlay,
   testId,
 }: {
+  ref?: React.Ref<HTMLElement>;
+  step: number;
   label: string;
   sublabel: string;
-  icon: ReactNode;
   children: ReactNode;
   overlay?: ReactNode;
   testId: string;
 }) {
   return (
-    <figure className="mx-auto w-full max-w-[380px] space-y-3">
-      <figcaption className="flex items-center gap-2 px-2">
-        <span className="flex size-8 items-center justify-center rounded-full bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">{icon}</span>
+    <figure ref={ref} className="mx-auto w-full max-w-[400px] scroll-mt-20 space-y-3 lg:max-w-[360px]">
+      <figcaption className="flex items-center gap-3 px-1">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sky-600 text-sm font-bold text-white shadow-sm">{step}</span>
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{label}</span>
-          <span className="block truncate text-xs text-muted-foreground">{sublabel}</span>
+          <span className="block truncate font-semibold">{label}</span>
+          <span className="block truncate text-sm text-muted-foreground">{sublabel}</span>
         </span>
       </figcaption>
-      <div className="rounded-[2.9rem] bg-gradient-to-b from-slate-700 to-slate-900 p-2.5 shadow-2xl shadow-sky-950/25 ring-1 ring-black/10">
-        <div data-testid={testId} className="relative isolate h-[700px] overflow-hidden rounded-[2.3rem] bg-background">
-          <div className="pointer-events-none absolute top-2 left-1/2 z-40 h-6 w-28 -translate-x-1/2 rounded-full bg-slate-900" aria-hidden />
-          {overlay && <div className="absolute inset-x-0 top-8 z-50">{overlay}</div>}
-          <div className="h-full overflow-y-auto overscroll-contain pt-9">{children}</div>
+      <div className="lg:rounded-[3rem] lg:bg-gradient-to-b lg:from-slate-600 lg:to-slate-900 lg:p-2.5 lg:shadow-2xl lg:ring-1 lg:shadow-sky-950/30 lg:ring-black/20">
+        <div
+          data-testid={testId}
+          className="relative isolate overflow-hidden rounded-3xl border bg-background shadow-sm lg:h-[720px] lg:rounded-[2.4rem] lg:border-0 lg:shadow-none"
+        >
+          <StatusBar />
+          {overlay && <div className="absolute inset-x-0 top-1 z-50 lg:top-10">{overlay}</div>}
+          <div className="no-scrollbar lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:pt-10">{children}</div>
         </div>
       </div>
     </figure>
   );
 }
 
+function StatusBar() {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-40 hidden h-10 items-center justify-between bg-background/85 px-7 text-xs font-semibold backdrop-blur lg:flex" aria-hidden>
+      <span>9:41</span>
+      <span className="absolute top-2 left-1/2 h-6 w-24 -translate-x-1/2 rounded-full bg-slate-900" />
+      <span className="flex items-center gap-1">
+        <SignalIcon className="size-3.5" />
+        <WifiIcon className="size-3.5" />
+        <BatteryFullIcon className="size-4" />
+      </span>
+    </div>
+  );
+}
+
 function ClinicScreen({ clinicId, status, arrivals }: { clinicId: string; status: ReturnType<typeof useLiveAlerts>["status"]; arrivals: Arrival[] }) {
+  const t = useTranslate();
   const load = useMemo(() => () => api.getAlerts({ clinicId }), [clinicId]);
   const alerts = useApi(load);
   const fresh = new Set(arrivals.map((a) => a.alert.id));
   const list = alerts.data && [...arrivals.map((a) => a.alert), ...alerts.data.filter((a) => !fresh.has(a.id))];
 
   return (
-    <div className="space-y-3 px-4 pt-2 pb-8">
+    <div className="space-y-3 px-4 pt-3 pb-6 lg:px-5">
       <div className="flex items-center gap-2">
-        <ActivityIcon className="size-4 text-sky-600 dark:text-sky-400" aria-hidden />
-        <h2 className="font-semibold">Clinic alerts</h2>
+        <ActivityIcon className="size-5 text-sky-600 dark:text-sky-400" aria-hidden />
+        <h2 className="text-lg font-semibold">{t("loop.clinicTitle")}</h2>
         <LiveIndicator status={status} className="ml-auto" />
       </div>
-      {alerts.loading && <LoadingRows rows={2} label="Loading alerts" />}
-      {list?.length === 0 && <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No active alerts. New ones appear here on their own.</p>}
+      {alerts.loading && <LoadingRows rows={2} label={t("loop.loadingAlerts")} />}
+      {list?.length === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+          <DropletsIcon className="size-8 text-sky-400" aria-hidden />
+          {t("loop.noAlerts")}
+        </div>
+      )}
       <ul className="space-y-2" id="clinic-alert-list">
         {list?.map((alert) => (
           <li

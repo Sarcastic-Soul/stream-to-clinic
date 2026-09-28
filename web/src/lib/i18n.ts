@@ -4,6 +4,13 @@
 //
 // Kept deliberately small: a flat dictionary and a lookup, no routing segments and no dependency.
 
+import * as common from "./messages/common";
+import * as loop from "./messages/loop";
+import * as clinic from "./messages/clinic";
+import * as trends from "./messages/trends";
+import * as ask from "./messages/ask";
+import * as standards from "./messages/standards";
+
 export type Locale = "en" | "el" | "it";
 
 export const LOCALES: Locale[] = ["en", "el", "it"];
@@ -18,7 +25,7 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 /** Short label for the header toggle. */
 export const LOCALE_SHORT: Record<Locale, string> = { en: "EN", el: "ΕΛ", it: "IT" };
 
-const en = {
+const core = {
   "nav.map": "Map",
   "nav.report": "Report",
   "nav.clinic": "Clinic",
@@ -29,10 +36,11 @@ const en = {
   "nav.standards": "Standards",
   "nav.main": "Main",
   "nav.language": "Language",
+  "nav.menu": "Menu",
   "nav.demoData": "Demo data",
 
   "report.title": "Report a stream observation",
-  "report.intro": "Pick a site, say what you saw, and send. It takes less than a minute and helps warn nearby clinics early.",
+  "report.intro": "Takes under a minute. Helps warn nearby clinics early.",
   "report.site": "Site",
   "report.chooseSite": "Choose a site",
   "report.nearest": "Nearest to me",
@@ -48,7 +56,7 @@ const en = {
   "report.howMuch": "How much {indicator}?",
   "report.between": "Between {min} and {max}{unit}.",
   "report.yourName": "Your name",
-  "report.nameHint": "Shown with your report and remembered on this device.",
+  "report.nameHint": "Shown with your report",
   "report.note": "Note",
   "report.optional": "(optional)",
   "report.notePlaceholder": "Smell, colour, dead fish, anything unusual",
@@ -73,7 +81,7 @@ const en = {
   "report.queuedWaitingBody": "Your {indicator} report for {site} is saved on this device. It will be sent automatically when you are back online, as long as this app is open.",
 
   "report.saved": "Report saved",
-  "report.thanks": "Thank you, {name}. Your observation is now a standard FHIR resource.",
+  "report.thanks": "Thank you, {name}.",
   "report.observedAt": "Observed",
   "report.photo": "Photo",
   "report.fhir": "FHIR",
@@ -108,14 +116,13 @@ const en = {
   "indicator.diptera": "Diptera",
 
   "map.title": "Stream sites",
-  "map.intro": "Citizen observations from OneAquaHealth sites. Pick a site on the map or in the list to see its readings and alerts.",
   "map.allSites": "All sites",
   "map.byRisk": "Sites by risk",
 
   "journey.follow": "Follow what happens to this report",
   "journey.eyebrow": "Your report's journey",
   "journey.title": "What happened to your report",
-  "journey.intro": "Every step below is a real FHIR record that anyone can open. This page updates on its own when a clinic replies.",
+  "journey.intro": "Each step is a real FHIR record. This page updates when a clinic replies.",
   "journey.loading": "Loading your report's journey",
   "journey.sent": "You sent it",
   "journey.stored": "Stored as a standard health record",
@@ -144,9 +151,12 @@ const en = {
   "footer.builtFor": "Built for the OneAquaHealth IEEE Global Hackathon.",
 } satisfies Record<string, string>;
 
+// Each page area keeps its own messages in ./messages; the core ones above cover navigation and reporting.
+const en = { ...core, ...common.en, ...loop.en, ...clinic.en, ...trends.en, ...ask.en, ...standards.en };
+
 export type MessageKey = keyof typeof en;
 
-const el: Partial<Record<MessageKey, string>> = {
+const coreEl: Partial<Record<MessageKey, string>> = {
   "nav.map": "Χάρτης",
   "nav.report": "Αναφορά",
   "nav.clinic": "Κλινική",
@@ -157,10 +167,11 @@ const el: Partial<Record<MessageKey, string>> = {
   "nav.standards": "Πρότυπα",
   "nav.main": "Κύριο μενού",
   "nav.language": "Γλώσσα",
+  "nav.menu": "Μενού",
   "nav.demoData": "Δοκιμαστικά δεδομένα",
 
   "report.title": "Αναφέρετε μια παρατήρηση στο ρέμα",
-  "report.intro": "Επιλέξτε σημείο, πείτε τι είδατε και στείλτε το. Παίρνει λιγότερο από ένα λεπτό και βοηθά να ειδοποιηθούν έγκαιρα οι κοντινές κλινικές.",
+  "report.intro": "Χρειάζεται λιγότερο από ένα λεπτό και βοηθά να ειδοποιηθούν νωρίς οι κοντινές κλινικές.",
   "report.site": "Σημείο",
   "report.chooseSite": "Επιλέξτε σημείο",
   "report.nearest": "Το πλησιέστερο σε εμένα",
@@ -176,7 +187,7 @@ const el: Partial<Record<MessageKey, string>> = {
   "report.howMuch": "Ποσότητα — {indicator};",
   "report.between": "Μεταξύ {min} και {max}{unit}.",
   "report.yourName": "Το όνομά σας",
-  "report.nameHint": "Εμφανίζεται μαζί με την αναφορά σας και αποθηκεύεται σε αυτή τη συσκευή.",
+  "report.nameHint": "Εμφανίζεται με την αναφορά σας",
   "report.note": "Σημείωση",
   "report.optional": "(προαιρετικό)",
   "report.notePlaceholder": "Οσμή, χρώμα, νεκρά ψάρια, οτιδήποτε ασυνήθιστο",
@@ -201,7 +212,7 @@ const el: Partial<Record<MessageKey, string>> = {
   "report.queuedWaitingBody": "Η αναφορά σας ({indicator}) για {site} αποθηκεύτηκε σε αυτή τη συσκευή. Θα σταλεί αυτόματα μόλις επανέλθει η σύνδεση, εφόσον η εφαρμογή είναι ανοιχτή.",
 
   "report.saved": "Η αναφορά αποθηκεύτηκε",
-  "report.thanks": "Ευχαριστούμε, {name}. Η παρατήρησή σας είναι πλέον ένας τυποποιημένος πόρος FHIR.",
+  "report.thanks": "Ευχαριστούμε, {name}.",
   "report.observedAt": "Παρατηρήθηκε",
   "report.photo": "Φωτογραφία",
   "report.fhir": "FHIR",
@@ -235,14 +246,13 @@ const el: Partial<Record<MessageKey, string>> = {
   "indicator.diptera": "Δίπτερα (προνύμφες κουνουπιών)",
 
   "map.title": "Σημεία ρεμάτων",
-  "map.intro": "Παρατηρήσεις πολιτών από σημεία του OneAquaHealth. Επιλέξτε σημείο στον χάρτη ή στη λίστα για μετρήσεις και ειδοποιήσεις.",
   "map.allSites": "Όλα τα σημεία",
   "map.byRisk": "Σημεία ανά κίνδυνο",
 
   "journey.follow": "Δείτε τι γίνεται με αυτή την αναφορά",
   "journey.eyebrow": "Η διαδρομή της αναφοράς σας",
   "journey.title": "Τι έγινε με την αναφορά σας",
-  "journey.intro": "Κάθε βήμα παρακάτω είναι πραγματική εγγραφή FHIR που μπορεί να ανοίξει ο καθένας. Η σελίδα ενημερώνεται μόνη της όταν απαντήσει μια κλινική.",
+  "journey.intro": "Κάθε βήμα είναι πραγματική εγγραφή FHIR. Η σελίδα ενημερώνεται όταν απαντήσει μια κλινική.",
   "journey.loading": "Φόρτωση της διαδρομής της αναφοράς",
   "journey.sent": "Τη στείλατε",
   "journey.stored": "Αποθηκεύτηκε ως τυποποιημένη εγγραφή υγείας",
@@ -271,7 +281,7 @@ const el: Partial<Record<MessageKey, string>> = {
   "footer.builtFor": "Φτιάχτηκε για το OneAquaHealth IEEE Global Hackathon.",
 };
 
-const it: Partial<Record<MessageKey, string>> = {
+const coreIt: Partial<Record<MessageKey, string>> = {
   "nav.map": "Mappa",
   "nav.report": "Segnala",
   "nav.clinic": "Clinica",
@@ -282,10 +292,11 @@ const it: Partial<Record<MessageKey, string>> = {
   "nav.standards": "Standard",
   "nav.main": "Menu principale",
   "nav.language": "Lingua",
+  "nav.menu": "Menu",
   "nav.demoData": "Dati dimostrativi",
 
   "report.title": "Segnala un'osservazione sul corso d'acqua",
-  "report.intro": "Scegli un sito, racconta cosa hai visto e invia. Richiede meno di un minuto e aiuta ad avvisare per tempo le cliniche vicine.",
+  "report.intro": "Serve meno di un minuto e aiuta ad avvisare presto le cliniche vicine.",
   "report.site": "Sito",
   "report.chooseSite": "Scegli un sito",
   "report.nearest": "Il più vicino a me",
@@ -301,7 +312,7 @@ const it: Partial<Record<MessageKey, string>> = {
   "report.howMuch": "Quantità — {indicator}?",
   "report.between": "Tra {min} e {max}{unit}.",
   "report.yourName": "Il tuo nome",
-  "report.nameHint": "Mostrato insieme alla segnalazione e ricordato su questo dispositivo.",
+  "report.nameHint": "Mostrato con la segnalazione",
   "report.note": "Nota",
   "report.optional": "(facoltativa)",
   "report.notePlaceholder": "Odore, colore, pesci morti, qualsiasi cosa insolita",
@@ -326,7 +337,7 @@ const it: Partial<Record<MessageKey, string>> = {
   "report.queuedWaitingBody": "La tua segnalazione ({indicator}) per {site} è salvata su questo dispositivo. Sarà inviata automaticamente quando torni online, se l'app resta aperta.",
 
   "report.saved": "Segnalazione salvata",
-  "report.thanks": "Grazie, {name}. La tua osservazione è ora una risorsa FHIR standard.",
+  "report.thanks": "Grazie, {name}.",
   "report.observedAt": "Osservato",
   "report.photo": "Foto",
   "report.fhir": "FHIR",
@@ -360,14 +371,13 @@ const it: Partial<Record<MessageKey, string>> = {
   "indicator.diptera": "Ditteri (larve di zanzara)",
 
   "map.title": "Siti sui corsi d'acqua",
-  "map.intro": "Osservazioni dei cittadini nei siti OneAquaHealth. Scegli un sito sulla mappa o nell'elenco per vedere letture e allerte.",
   "map.allSites": "Tutti i siti",
   "map.byRisk": "Siti per rischio",
 
   "journey.follow": "Segui cosa succede a questa segnalazione",
   "journey.eyebrow": "Il percorso della tua segnalazione",
   "journey.title": "Cosa è successo alla tua segnalazione",
-  "journey.intro": "Ogni passo qui sotto è un vero record FHIR che chiunque può aprire. La pagina si aggiorna da sola quando una clinica risponde.",
+  "journey.intro": "Ogni passo è un vero record FHIR. La pagina si aggiorna quando una clinica risponde.",
   "journey.loading": "Caricamento del percorso della segnalazione",
   "journey.sent": "L'hai inviata",
   "journey.stored": "Salvata come record sanitario standard",
@@ -395,6 +405,9 @@ const it: Partial<Record<MessageKey, string>> = {
 
   "footer.builtFor": "Realizzato per l'OneAquaHealth IEEE Global Hackathon.",
 };
+
+const el: Partial<Record<MessageKey, string>> = { ...coreEl, ...common.el, ...loop.el, ...clinic.el, ...trends.el, ...ask.el, ...standards.el };
+const it: Partial<Record<MessageKey, string>> = { ...coreIt, ...common.it, ...loop.it, ...clinic.it, ...trends.it, ...ask.it, ...standards.it };
 
 const MESSAGES: Record<Locale, Partial<Record<MessageKey, string>>> = { en, el, it };
 

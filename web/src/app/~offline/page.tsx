@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CloudOffIcon } from "lucide-react";
+import { T } from "@/components/t";
 import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Offline" };
@@ -10,13 +11,14 @@ export default function OfflinePage() {
   return (
     <div className="mx-auto w-full max-w-xl space-y-4 px-4 py-10">
       <CloudOffIcon className="size-8 text-muted-foreground" aria-hidden />
-      <h1 className="text-2xl font-semibold">You are offline</h1>
+      <h1 className="text-2xl font-semibold">
+        <T k="common.offline.title" />
+      </h1>
       <p className="text-muted-foreground">
-        This page has not been saved on your device yet. The report form works offline once you have opened it with a
-        connection: reports are kept on the device and sent when you are back online.
+        <T k="common.offline.body" />
       </p>
       <Link href="/report" className={buttonVariants({ size: "lg" })}>
-        Open the report form
+        <T k="common.offline.cta" />
       </Link>
     </div>
   );

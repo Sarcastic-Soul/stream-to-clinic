@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { CircleAlertIcon, LoaderCircleIcon, ShieldCheckIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
+import { useTranslate } from "@/hooks/use-locale";
 import { completeSmartLaunch, startSmartLaunch } from "@/lib/smart";
 
 function Progress({ title, detail }: { title: string; detail: string }) {
@@ -28,15 +29,16 @@ function Progress({ title, detail }: { title: string; detail: string }) {
 }
 
 function Failed({ message }: { message: string }) {
+  const t = useTranslate();
   return (
     <div className="space-y-4 py-10" data-testid="smart-error">
       <Alert variant="destructive" role="alert">
         <CircleAlertIcon />
-        <AlertTitle>SMART on FHIR sign-in did not finish</AlertTitle>
+        <AlertTitle>{t("clinic.smart.flowFailed")}</AlertTitle>
         <AlertDescription>{message}</AlertDescription>
       </Alert>
       <Link href="/clinic" className={buttonVariants({ variant: "outline" })}>
-        Back to clinic alerts
+        {t("clinic.smart.back")}
       </Link>
     </div>
   );
@@ -44,21 +46,23 @@ function Failed({ message }: { message: string }) {
 
 /** /smart/launch: the EHR opens the app here with iss and launch; hand over to the authorize endpoint. */
 export function SmartLaunch({ iss, launch }: { iss?: string; launch?: string }) {
+  const t = useTranslate();
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    startSmartLaunch({ iss, launch }).catch((err: unknown) => setError(err instanceof Error ? err.message : "Launch failed."));
-  }, [iss, launch]);
+    startSmartLaunch({ iss, launch }).catch((err: unknown) => setError(err instanceof Error ? err.message : t("clinic.smart.launchFailed")));
+  }, [iss, launch, t]);
 
   if (error) return <Failed message={error} />;
-  return <Progress title={launch ? "Opening from your EHR" : "Connecting to the FHIR server"} detail="Asking the authorization server for access…" />;
+  return <Progress title={launch ? t("clinic.smart.openingEhr") : t("clinic.smart.connecting")} detail={t("clinic.smart.askingAccess")} />;
 }
 
 /** /smart/callback: swap the code for a token, then open the clinic the token is for. */
 export function SmartCallback() {
+  const t = useTranslate();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
@@ -68,9 +72,9 @@ export function SmartCallback() {
     started.current = true;
     completeSmartLaunch(new URLSearchParams(window.location.search))
       .then((session) => router.replace(`/clinic?clinic=${encodeURIComponent(session.clinicId)}`))
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Sign-in failed."));
-  }, [router]);
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : t("clinic.smart.signInError")));
+  }, [router, t]);
 
   if (error) return <Failed message={error} />;
-  return <Progress title="Signing you in" detail="Exchanging the authorization code for an access token…" />;
+  return <Progress title={t("clinic.smart.signingIn")} detail={t("clinic.smart.gettingToken")} />;
 }

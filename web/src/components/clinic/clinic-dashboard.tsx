@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCard } from "@/components/alert-card";
 import { AlertBanner, LiveIndicator } from "@/components/clinic/live-alerts";
+import { InfoTip } from "@/components/info-tip";
 import { PushToggle } from "@/components/clinic/push-toggle";
 import { SmartPanel } from "@/components/clinic/smart-panel";
 import { LoadError, LoadingRows } from "@/components/status";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useApi } from "@/hooks/use-api";
+import { useTranslate } from "@/hooks/use-locale";
 import { useLiveAlerts, type Arrival } from "@/hooks/use-live-alerts";
 import { api } from "@/lib/api";
 import { readStored, writeStored } from "@/lib/storage";
@@ -18,7 +20,21 @@ const CLINIC_KEY = "stream-to-clinic.clinic";
 
 const clinicUrl = (id: string) => `/clinic?clinic=${encodeURIComponent(id)}`;
 
+export function ClinicHeader() {
+  const t = useTranslate();
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-semibold">{t("clinic.title")}</h1>
+        <InfoTip label={t("common.moreInfo")}>{t("clinic.titleInfo")}</InfoTip>
+      </div>
+      <p className="text-muted-foreground">{t("clinic.subtitle")}</p>
+    </div>
+  );
+}
+
 export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
+  const t = useTranslate();
   const router = useRouter();
   const clinics = useApi(api.getClinics);
   const alerts = useApi(useMemo(() => (clinicId ? () => api.getAlerts({ clinicId }) : null), [clinicId]));
@@ -40,8 +56,8 @@ export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
     router.replace(clinicUrl(id));
   }
 
-  if (clinics.error) return <LoadError error={clinics.error} what="clinics" />;
-  if (!clinics.data) return <LoadingRows rows={3} label="Loading clinics" />;
+  if (clinics.error) return <LoadError error={clinics.error} />;
+  if (!clinics.data) return <LoadingRows rows={3} label={t("clinic.loadingClinics")} />;
 
   const fresh = new Set(live.arrivals.map((a) => a.alert.id));
   const sorted =
@@ -53,14 +69,14 @@ export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="clinic">Your clinic</Label>
+        <Label htmlFor="clinic">{t("clinic.yourClinic")}</Label>
         <Select
           items={clinics.data.map((c) => ({ value: c.id, label: `${c.name}, ${c.city}` }))}
           value={clinic ? clinic.id : null}
           onValueChange={choose}
         >
           <SelectTrigger id="clinic" className="h-11 w-full">
-            <SelectValue placeholder="Choose a clinic" />
+            <SelectValue placeholder={t("clinic.chooseClinic")} />
           </SelectTrigger>
           <SelectContent>
             {clinics.data.map((c) => (
@@ -72,7 +88,7 @@ export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
         </Select>
         {clinic && (
           <p className="text-sm text-muted-foreground">
-            Receives alerts for {clinic.siteIds.length} stream {clinic.siteIds.length === 1 ? "site" : "sites"}.
+            {clinic.siteIds.length === 1 ? t("clinic.sitesOne") : t("clinic.sitesMany", { count: clinic.siteIds.length })}
           </p>
         )}
         {clinicId && <PushToggle clinicId={clinicId} />}
@@ -82,10 +98,9 @@ export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
       {banner && clinicId && <AlertBanner arrival={banner} clinicId={clinicId} onDismiss={dismissBanner} />}
 
       {!clinicId && (
-        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-          Pick a clinic to see the early warnings for the streams it serves, each with the citizen readings and
-          weather behind it. The same alerts leave the server as FHIR <code>Communication</code> resources, so a
-          clinical system can subscribe to them instead of this page.
+        <p className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+          {t("clinic.pickClinic")}
+          <InfoTip label={t("common.moreInfo")}>{t("clinic.pickInfo")}</InfoTip>
         </p>
       )}
 
@@ -93,16 +108,14 @@ export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
         <section aria-labelledby="alerts-heading" className="space-y-3">
           <div className="flex items-center gap-3">
             <h2 id="alerts-heading" className="text-lg font-semibold">
-              Alerts{sorted ? ` (${sorted.length})` : ""}
+              {sorted ? t("clinic.alertsCount", { count: sorted.length }) : t("clinic.alerts")}
             </h2>
             <LiveIndicator status={live.status} className="ml-auto" />
           </div>
-          {alerts.loading && <LoadingRows rows={3} label="Loading alerts" />}
-          {alerts.error && <LoadError error={alerts.error} what="alerts" />}
+          {alerts.loading && <LoadingRows rows={3} label={t("clinic.loadingAlerts")} />}
+          {alerts.error && <LoadError error={alerts.error} />}
           {sorted?.length === 0 && (
-            <p className="rounded-xl border p-4 text-sm text-muted-foreground">
-              No alerts for the sites near this clinic. New alerts appear here as soon as citizen reports trigger them.
-            </p>
+            <p className="rounded-xl border p-4 text-sm text-muted-foreground">{t("clinic.noAlerts")}</p>
           )}
           <ul className="space-y-2">
             {sorted?.map((alert) => (

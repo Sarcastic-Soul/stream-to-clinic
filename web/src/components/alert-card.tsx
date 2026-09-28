@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
-import { formatDateTime } from "@/lib/format";
+import { useTranslate } from "@/hooks/use-locale";
+import { alertTitle, formatDateTime } from "@/lib/format";
 import type { AlertSummary } from "@/lib/types";
 import { RiskBadge } from "./status";
 
@@ -14,6 +17,7 @@ export function AlertCard({
   /** Carried into the alert so that clinic can respond to it there. */
   clinicId?: string;
 }) {
+  const t = useTranslate();
   const replies = alert.acknowledgements ?? [];
   return (
     <Link
@@ -22,15 +26,15 @@ export function AlertCard({
     >
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{alert.title}</span>
+          <span className="font-medium">{alertTitle(t, alert)}</span>
           <RiskBadge level={alert.level} />
           {alert.watchFor === "" && (
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">Environmental</span>
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">{t("common.environmental")}</span>
           )}
           {replies.length > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-900 dark:bg-green-950 dark:text-green-200">
               <CheckIcon className="size-3" aria-hidden />
-              Answered
+              {t("common.answered")}
             </span>
           )}
         </div>

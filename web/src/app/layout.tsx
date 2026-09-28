@@ -1,6 +1,6 @@
 import { SerwistProvider } from "@serwist/turbopack/react";
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Noto_Sans } from "next/font/google";
+import { JetBrains_Mono, Manrope } from "next/font/google";
 import { ReportQueueBanner } from "@/components/report-queue-banner";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -8,23 +8,16 @@ import { LOCALE_SCRIPT } from "@/lib/i18n";
 import { THEME_COLOR, THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// One family for every language on the site: Manrope and JetBrains Mono both cover Latin and
+// Greek, so switching between English, Greek and Italian never changes the typeface.
+const sans = Manrope({
+  variable: "--font-app-sans",
+  subsets: ["latin", "latin-ext", "greek"],
 });
 
-// Geist has no Greek subset, so Greek gets Noto Sans instead (see globals.css).
-// Not preloaded: only readers who switch to Greek pay for it.
-const notoSansGreek = Noto_Sans({
-  variable: "--font-noto-greek",
-  subsets: ["greek", "latin"],
-  display: "swap",
-  preload: false,
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const mono = JetBrains_Mono({
+  variable: "--font-app-mono",
+  subsets: ["latin", "greek"],
 });
 
 export const metadata: Metadata = {
@@ -45,7 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-theme="light"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${notoSansGreek.variable} h-full antialiased`}
+      className={`${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <head>
         {/* Applies the saved theme and language while the HTML is parsed, before the first paint. */}

@@ -1,5 +1,5 @@
 import type { Translate } from "./i18n";
-import type { AckAction, Indicator, ObservationSummary, Presence, RiskLevel } from "./types";
+import type { AckAction, Indicator, ObservationSummary, Presence, RiskKind, RiskLevel } from "./types";
 
 export const RISK: Record<RiskLevel, { label: string; color: string; badge: string }> = {
   none: {
@@ -43,6 +43,17 @@ export function indicatorLabel(t: Translate, indicator: Pick<Indicator, "id" | "
   const translated = t(key);
   return translated === key ? indicator.display : translated;
 }
+
+export const riskLabel = (t: Translate, level: RiskLevel) => t(`common.risk.${level}`);
+
+/** The alert's name in the reader's language; the API's English title when the kind is new. */
+export function alertTitle(t: Translate, alert: { risk: RiskKind; title: string }): string {
+  const key = `common.kind.${alert.risk}` as Parameters<Translate>[0];
+  const translated = t(key);
+  return translated === key ? alert.title : translated;
+}
+
+export const ackLabel = (t: Translate, action: AckAction) => t(`common.ack.${action}`);
 
 export function presenceLabel(t: Translate, presence: Presence): string {
   return t(`presence.${presence}` as Parameters<Translate>[0]);

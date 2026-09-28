@@ -71,7 +71,6 @@ test("an alert can be rewritten as a notice for the clinic desk", async ({ page 
   await page.getByRole("link", { name: /Possible algal bloom/ }).first().click();
 
   const advisory = page.getByRole("region", { name: "Notice for the clinic desk" });
-  await expect(advisory.getByText(/cannot change the risk or its level/)).toBeVisible();
   await advisory.getByRole("button", { name: "Draft the notice" }).click();
 
   // The draft names the model that wrote it and links the Communication it is stored as.

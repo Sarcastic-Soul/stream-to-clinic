@@ -3,12 +3,13 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { InfoTip } from "@/components/info-tip";
 import { LoadError, LoadingRows, RiskBadge } from "@/components/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApi } from "@/hooks/use-api";
 import { useTranslate } from "@/hooks/use-locale";
 import { api } from "@/lib/api";
-import { RISK, RISK_LEVELS } from "@/lib/format";
+import { RISK, RISK_LEVELS, riskLabel } from "@/lib/format";
 import type { RiskLevel, SiteSummary } from "@/lib/types";
 import { SitePanel } from "./site-panel";
 
@@ -29,7 +30,7 @@ export function MapDashboard() {
 
   return (
     <div className="grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,1fr)_26rem] lg:grid-rows-[minmax(0,1fr)]">
-      <section aria-label="Map of monitored stream sites" className="relative h-[55dvh] min-h-80 lg:h-full">
+      <section aria-label={t("trends.map.mapLabel")} className="relative h-[55dvh] min-h-80 lg:h-full">
         {sites.data ? (
           <SiteMap sites={sites.data} selectedId={selectedId} onSelect={select} />
         ) : (
@@ -38,16 +39,19 @@ export function MapDashboard() {
         {sites.data && <Legend sites={sites.data} />}
       </section>
 
-      <aside aria-label="Site details" className="border-t lg:overflow-y-auto lg:border-t-0 lg:border-l">
+      <aside aria-label={t("trends.map.details")} className="border-t lg:overflow-y-auto lg:border-t-0 lg:border-l">
         {selectedId ? (
           <SitePanel key={selectedId} siteId={selectedId} indicators={indicators.data ?? []} onBack={() => select(null)} />
         ) : (
           <div className="space-y-4 p-4">
             <div className="space-y-1">
-              <h1 className="text-xl font-semibold">{t("map.title")}</h1>
-              <p className="text-sm text-muted-foreground">{t("map.intro")}</p>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-xl font-semibold">{t("map.title")}</h1>
+                <InfoTip label={t("common.moreInfo")}>{t("trends.map.info")}</InfoTip>
+              </div>
+              <p className="text-sm text-muted-foreground">{t("trends.map.subtitle")}</p>
             </div>
-            {sites.loading && <LoadingRows rows={4} label="Loading sites" />}
+            {sites.loading && <LoadingRows rows={4} label={t("trends.map.loadingSites")} />}
             {sites.error && <LoadError error={sites.error} what="sites" />}
             {sites.data && <SiteList sites={sites.data} onSelect={select} />}
             <p className="text-sm">
@@ -63,6 +67,7 @@ export function MapDashboard() {
 }
 
 function SiteList({ sites, onSelect }: { sites: SiteSummary[]; onSelect: (id: string) => void }) {
+  const t = useTranslate();
   const regions = [...new Set(sites.map((s) => s.region))];
   return regions.map((region) => (
     <section key={region} className="space-y-2">
@@ -80,7 +85,10 @@ function SiteList({ sites, onSelect }: { sites: SiteSummary[]; onSelect: (id: st
                 <span className="min-w-0">
                   <span className="block font-medium">{site.name}</span>
                   <span className="block text-sm text-muted-foreground">
-                    {site.waterBody} · {site.latest.length} indicators
+                    {site.waterBody} ·{" "}
+                    {site.latest.length === 1
+                      ? t("trends.map.indicatorsOne")
+                      : t("trends.map.indicatorsMany", { count: site.latest.length })}
                   </span>
                 </span>
                 <RiskBadge level={site.riskLevel} />
@@ -109,7 +117,7 @@ function Legend({ sites }: { sites: SiteSummary[] }) {
               aria-hidden
             />
             <span className="tabular-nums">{count(level)}</span>
-            <span className="hidden text-slate-600 sm:inline">{RISK[level].label.toLowerCase()}</span>
+            <span className="hidden text-slate-600 sm:inline">{riskLabel(t, level)}</span>
           </li>
         ))}
       </ul>

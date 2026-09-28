@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { BellIcon, BellOffIcon, BellRingIcon, LoaderCircleIcon } from "lucide-react";
+import { InfoTip } from "@/components/info-tip";
 import { Button } from "@/components/ui/button";
+import { useTranslate } from "@/hooks/use-locale";
 import { api } from "@/lib/api";
+import type { MessageKey } from "@/lib/i18n";
 import { readStored, writeStored } from "@/lib/storage";
 
 const PUSH_CLINIC_KEY = "stream-to-clinic.push-clinic";
 
 type State =
   | { kind: "checking" }
-  | { kind: "unsupported"; reason: string }
+  | { kind: "unsupported"; reason: MessageKey }
   | { kind: "off" }
   | { kind: "on"; endpoint: string; otherClinic: boolean }
   | { kind: "denied" };
@@ -35,6 +38,7 @@ async function registration(): Promise<ServiceWorkerRegistration | undefined> {
  * even while it is closed. Open pages do not need it: they get alerts live anyway.
  */
 export function PushToggle({ clinicId }: { clinicId: string }) {
+  const t = useTranslate();
   const [state, setState] = useState<State>({ kind: "checking" });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -43,11 +47,11 @@ export function PushToggle({ clinicId }: { clinicId: string }) {
     let active = true;
     (async () => {
       const reg = await registration();
-      if (!reg) return { kind: "unsupported", reason: "This browser cannot receive push notifications here." } as const;
+      if (!reg) return { kind: "unsupported", reason: "clinic.push.noBrowser" } as const;
       try {
         await api.getPushKey();
       } catch {
-        return { kind: "unsupported", reason: "Push notifications are not available on this server." } as const;
+        return { kind: "unsupported", reason: "clinic.push.noServer" } as const;
       }
       if (Notification.permission === "denied") return { kind: "denied" } as const;
       const sub = await reg.pushManager.getSubscription();
@@ -72,9 +76,9 @@ export function PushToggle({ clinicId }: { clinicId: string }) {
       await api.subscribePush(clinicId, { endpoint: sub.endpoint, keys: { p256dh: json.keys?.p256dh ?? "", auth: json.keys?.auth ?? "" } });
       writeStored(PUSH_CLINIC_KEY, clinicId);
       setState({ kind: "on", endpoint: sub.endpoint, otherClinic: false });
-      setMessage("Notifications are on. New alerts for this clinic will reach this device.");
+      setMessage(t("clinic.push.done"));
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Could not turn notifications on.");
+      setMessage(err instanceof Error ? err.message : t("clinic.push.failed"));
     } finally {
       setBusy(false);
     }
@@ -101,16 +105,23 @@ export function PushToggle({ clinicId }: { clinicId: string }) {
     setMessage(null);
     try {
       await api.testPush(endpoint);
-      setMessage("Test sent. It should appear in a few seconds.");
+      setMessage(t("clinic.push.testSent"));
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "The test could not be sent.");
+      setMessage(err instanceof Error ? err.message : t("clinic.push.testFailed"));
     } finally {
       setBusy(false);
     }
   }
 
+  const info = <InfoTip label={t("common.moreInfo")}>{t("clinic.push.info")}</InfoTip>;
+
   if (state.kind === "checking" || state.kind === "unsupported") {
-    return state.kind === "unsupported" ? <p className="text-xs text-muted-foreground">{state.reason} Open alerts still arrive live on this page.</p> : null;
+    return state.kind === "unsupported" ? (
+      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+        {t(state.reason)}
+        {info}
+      </p>
+    ) : null;
   }
 
   return (
@@ -119,28 +130,27 @@ export function PushToggle({ clinicId }: { clinicId: string }) {
         {state.kind === "on" && !state.otherClinic ? (
           <>
             <BellRingIcon className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
-            <span className="text-sm font-medium">Notifications on for this clinic</span>
+            <span className="text-sm font-medium">{t("clinic.push.on")}</span>
             <div className="ml-auto flex gap-2">
               <Button size="sm" variant="outline" disabled={busy} onClick={() => test(state.endpoint)}>
-                Send a test
+                {t("clinic.push.test")}
               </Button>
               <Button size="sm" variant="ghost" disabled={busy} onClick={turnOff}>
                 <BellOffIcon data-icon="inline-start" />
-                Turn off
+                {t("clinic.push.off")}
               </Button>
             </div>
           </>
         ) : state.kind === "denied" ? (
-          <span className="text-sm text-muted-foreground">Notifications are blocked for this site in the browser settings.</span>
+          <span className="text-sm text-muted-foreground">{t("clinic.push.blocked")}</span>
         ) : (
           <>
             <BellIcon className="size-4 text-muted-foreground" aria-hidden />
-            <span className="text-sm">
-              {state.kind === "on" ? "This device gets notifications for another clinic." : "Get alerts on this device, even with the app closed."}
-            </span>
+            <span className="text-sm">{state.kind === "on" ? t("clinic.push.otherClinic") : t("clinic.push.prompt")}</span>
+            {info}
             <Button size="sm" className="ml-auto" disabled={busy} onClick={turnOn}>
               {busy && <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />}
-              {state.kind === "on" ? "Switch to this clinic" : "Turn on notifications"}
+              {state.kind === "on" ? t("clinic.push.switch") : t("clinic.push.turnOn")}
             </Button>
           </>
         )}
