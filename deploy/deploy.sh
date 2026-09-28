@@ -16,7 +16,16 @@ ENV
 fi
 
 cd "$REPO_DIR"
-docker compose -f deploy/compose.yml --env-file "$ENV_FILE" up -d --build --remove-orphans
+docker compose -f deploy/compose.yml --env-file "$ENV_FILE" build
+
+# Web push keys, generated once with the API image's own web-push and kept with the other secrets.
+if ! grep -q '^VAPID_PUBLIC_KEY=' "$ENV_FILE"; then
+  keys=$(docker compose -f deploy/compose.yml --env-file "$ENV_FILE" run --rm --no-deps -T api \
+    node -e 'const k=require("web-push").generateVAPIDKeys();console.log("VAPID_PUBLIC_KEY="+k.publicKey+"\nVAPID_PRIVATE_KEY="+k.privateKey)')
+  printf '%s\n' "$keys" >> "$ENV_FILE"
+fi
+
+docker compose -f deploy/compose.yml --env-file "$ENV_FILE" up -d --remove-orphans
 
 # Route this project's domain through the shared Caddy instance.
 install -D -m 644 deploy/caddy/stream-to-clinic.caddy /srv/caddy/sites/stream-to-clinic.caddy

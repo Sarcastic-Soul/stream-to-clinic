@@ -24,6 +24,13 @@ export const config = {
   // means the advisory endpoint answers 503 and everything else works as before.
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   geminiModel: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+  // Optional: VAPID keys for web push to clinic devices (`npx web-push generate-vapid-keys`).
+  // Unset means push is off; open clinic pages still get alerts over Server-Sent Events.
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? "",
+  vapidSubject: process.env.VAPID_SUBJECT || "mailto:oneaquahealth@example.org",
+  // Where the API keeps its own small files (push subscriptions). A Docker volume in production.
+  dataDir: process.env.DATA_DIR ?? "./data",
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3000")
     .split(",")
     .map((origin) => origin.trim())

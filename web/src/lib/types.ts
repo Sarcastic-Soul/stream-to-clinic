@@ -196,6 +196,20 @@ export interface FhirBundle {
   entry?: { fullUrl: string; resource: { resourceType: string; id?: string } }[];
 }
 
+// Live alert stream (GET /events): the state of the connection, for the "Live" indicator.
+export type LiveStatus = "connecting" | "live" | "offline";
+
+export interface LiveAlertHandlers {
+  onAlert: (alert: AlertSummary) => void;
+  onStatus?: (status: LiveStatus) => void;
+}
+
+// A browser push subscription, as PushSubscription.toJSON() gives it.
+export interface PushSubscriptionJson {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
 export interface Api {
   getHealth(): Promise<Health>;
   getIndicators(): Promise<Indicator[]>;
@@ -209,4 +223,10 @@ export interface Api {
   acknowledgeAlert(id: string, input: AcknowledgeInput): Promise<AlertSummary>;
   getTrends(days?: number): Promise<Trends>;
   requestAdvisory(id: string): Promise<Advisory>;
+  /** Streams newly raised alerts for one clinic (or all). Returns a function that closes the stream. */
+  subscribeAlerts(clinicId: string | undefined, handlers: LiveAlertHandlers): () => void;
+  getPushKey(): Promise<{ publicKey: string }>;
+  subscribePush(clinicId: string, subscription: PushSubscriptionJson): Promise<void>;
+  unsubscribePush(endpoint: string): Promise<void>;
+  testPush(endpoint: string): Promise<void>;
 }

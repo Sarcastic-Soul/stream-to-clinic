@@ -45,3 +45,45 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Web push from the API (see api/src/push.ts): an alert for the clinic this device subscribed for.
+interface PushMessage {
+  title?: string;
+  body?: string;
+  url?: string;
+  tag?: string;
+}
+
+self.addEventListener("push", (event) => {
+  let message: PushMessage = {};
+  try {
+    message = event.data?.json() ?? {};
+  } catch {
+    message = { body: event.data?.text() };
+  }
+  event.waitUntil(
+    self.registration.showNotification(message.title ?? "Stream-to-Clinic", {
+      body: message.body,
+      tag: message.tag,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: message.url ?? "/clinic" },
+    }),
+  );
+});
+
+// Tapping the notification opens the alert, reusing an open app window when there is one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data as { url?: string } | undefined)?.url ?? "/clinic", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) {
+        await open.navigate(url);
+        return open.focus();
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
+});

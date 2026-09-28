@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyBaseLogger } from "fastify";
 import { config } from "./config.js";
+import { alertEvents } from "./events.js";
 import { fhir } from "./fhir.js";
 import { buildNarrative, narrativeText, parseNarrative } from "./narrative.js";
 import { ACK_SYSTEM, ALERT_ID_SYSTEM, RISK_SYSTEM } from "./oah.js";
@@ -332,6 +333,8 @@ async function evaluate(site: Site, log: FastifyBaseLogger): Promise<AlertSummar
     });
 
   const raised: string[] = [];
+  // Newly raised issues and the clinics told about them, announced once the alerts are read back.
+  const fresh = new Map<string, string[]>();
   for (const decision of evaluateRisks(observations, weather, now)) {
     log.info({ siteId: site.id, ...decision }, "risk decision");
     const active = existing.matches.find(
@@ -344,14 +347,21 @@ async function evaluate(site: Site, log: FastifyBaseLogger): Promise<AlertSummar
       raised.push(active.id);
     } else if (decision.fired) {
       const notify = RISKS[decision.risk].watchFor ? clinics : [];
-      raised.push(await raise(site, decision, now.toISOString(), narrate(decision), notify));
+      const id = await raise(site, decision, now.toISOString(), narrate(decision), notify);
+      raised.push(id);
+      fresh.set(id, notify.map((c) => c.id));
     } else if (active?.id) {
       await fhir.update({ ...active, id: active.id, identifiedPeriod: { ...active.identifiedPeriod, end: now.toISOString() } });
     }
   }
 
   if (!raised.length) return [];
-  return (await listAlerts({ siteId: site.id })).filter((a) => raised.includes(a.id));
+  const alerts = (await listAlerts({ siteId: site.id })).filter((a) => raised.includes(a.id));
+  for (const alert of alerts) {
+    const clinicIds = fresh.get(alert.id);
+    if (clinicIds) alertEvents.emit("raised", { alert, clinicIds });
+  }
+  return alerts;
 }
 
 // Creates the DetectedIssue and its clinic Communications atomically in one transaction.

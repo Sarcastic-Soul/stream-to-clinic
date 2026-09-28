@@ -1,4 +1,4 @@
-import type { AcknowledgeInput, AlertFilter, Api, ReportInput } from "./types";
+import type { AcknowledgeInput, AlertFilter, AlertSummary, Api, LiveAlertHandlers, ReportInput } from "./types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://oneaquahealth.duckdns.org").replace(/\/$/, "");
 export const FHIR_URL = `${API_URL}/fhir`;
@@ -26,7 +26,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ApiError("Could not reach the server. Check your connection and try again.", 0);
   }
-  const body = await res.json().catch(() => null);
+  const body = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
     const message = typeof body?.error === "string" ? body.error : `Request failed (${res.status})`;
     throw new ApiError(message, res.status, body?.details);
@@ -65,7 +65,24 @@ const httpApi: Api = {
     }),
   getTrends: (days?: number) => request(`/trends${days ? `?days=${days}` : ""}`),
   requestAdvisory: (id: string) => request(`/alerts/${enc(id)}/advisory`, { method: "POST" }),
+  subscribeAlerts: (clinicId, { onAlert, onStatus }: LiveAlertHandlers) => {
+    const source = new EventSource(`${API_URL}/events${clinicId ? `?clinicId=${enc(clinicId)}` : ""}`);
+    onStatus?.("connecting");
+    source.addEventListener("ready", () => onStatus?.("live"));
+    source.addEventListener("alert", (event) => onAlert(JSON.parse((event as MessageEvent<string>).data) as AlertSummary));
+    // EventSource retries by itself; the indicator shows the gap until it is back.
+    source.onerror = () => onStatus?.(source.readyState === EventSource.CLOSED ? "offline" : "connecting");
+    return () => source.close();
+  },
+  getPushKey: () => request("/push/key"),
+  subscribePush: (clinicId, subscription) => request("/push/subscriptions", json({ clinicId, subscription })),
+  unsubscribePush: (endpoint) => request("/push/unsubscribe", json({ endpoint })),
+  testPush: (endpoint) => request("/push/test", json({ endpoint })),
 };
+
+function json(body: unknown): RequestInit {
+  return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+}
 
 // The mock is only bundled into the chunk loaded when NEXT_PUBLIC_API_MOCK=1.
 const client = (): Promise<Api> =>
@@ -84,6 +101,21 @@ export const api: Api = {
   acknowledgeAlert: (id, input) => client().then((c) => c.acknowledgeAlert(id, input)),
   getTrends: (days) => client().then((c) => c.getTrends(days)),
   requestAdvisory: (id) => client().then((c) => c.requestAdvisory(id)),
+  subscribeAlerts: (clinicId, handlers) => {
+    let close: (() => void) | undefined;
+    let closed = false;
+    client().then((c) => {
+      if (!closed) close = c.subscribeAlerts(clinicId, handlers);
+    });
+    return () => {
+      closed = true;
+      close?.();
+    };
+  },
+  getPushKey: () => client().then((c) => c.getPushKey()),
+  subscribePush: (clinicId, subscription) => client().then((c) => c.subscribePush(clinicId, subscription)),
+  unsubscribePush: (endpoint) => client().then((c) => c.unsubscribePush(endpoint)),
+  testPush: (endpoint) => client().then((c) => c.testPush(endpoint)),
 };
 
 export const fhirObservationUrl = (id: string) => `${FHIR_URL}/Observation/${enc(id)}`;

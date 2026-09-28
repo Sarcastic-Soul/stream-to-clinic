@@ -165,6 +165,11 @@ interface Trends {
 | POST | `/alerts/:id/acknowledge` | `201 AlertSummary` — a notified clinic reports what it did. 404 for an unknown alert or clinic, 409 if that clinic was not notified about this alert |
 | POST | `/alerts/:id/advisory` | `201 Advisory` — rewrites the alert as a short notice for clinic staff. Returns the existing advisory if there is one, so the text cannot change under a clinic that has read it. 404 unknown alert, 503 if no model key is configured on the server, 502 if the model could not be reached |
 | GET | `/trends?days=` | `Trends` — `days` is an integer between 7 and 90, default 28. Counts citizen `Observation`s and active `DetectedIssue`s per site and per region, with a daily series and a direction per indicator, and the district health baselines alongside |
+| GET | `/events?clinicId=` | Server-Sent Events (`text/event-stream`). Sends `ready` on connect, then one `alert` event (data: `AlertSummary`) per alert newly raised and sent to that clinic; without `clinicId`, every newly raised alert. Refreshes of an already active alert are not sent. A `: ping` comment every 25 s; 503 when 200 streams are already open |
+| GET | `/push/key` | `{ publicKey }` (VAPID, base64url) for `PushManager.subscribe`, or 503 when web push is not configured |
+| POST | `/push/subscriptions` | Body `{ clinicId, subscription: { endpoint, keys: { p256dh, auth } } }` (`PushSubscription.toJSON()`). `201`; one clinic per device (a new call for the same endpoint replaces the clinic). 400 unless the endpoint is `https` on a browser push service (FCM, Mozilla, Apple, Windows), 404 unknown clinic, 503 not configured. Every alert newly sent to that clinic is then pushed as `{ title, body, url, tag }` |
+| POST | `/push/unsubscribe` | Body `{ endpoint }`; 204 |
+| POST | `/push/test` | Body `{ endpoint }` of a subscribed device; sends it a test notification. `{ sent: true }`, 404 not subscribed, 502 refused by the push service |
 | GET | `/photos/:id` | The photo bytes (`image/jpeg`, `image/png` or `image/webp`) or 404 |
 | PUT | `/hooks/observation/Observation/:id` | Internal: FHIR rest-hook target for the Observation Subscription (HAPI delivers each match as a PUT of the Observation); answers 204. Not reachable through the public proxy |
 

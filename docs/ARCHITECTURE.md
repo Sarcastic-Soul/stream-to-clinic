@@ -25,7 +25,8 @@ Caddy on the EC2 host (oneaquahealth.duckdns.org, Let's Encrypt)
    └─ everything else ────────► API (Fastify, TypeScript)
                                   ├─ maps citizen reports (and photos, and Provenance) to FHIR
                                   ├─ risk engine (+ Open-Meteo weather)
-                                  └─ writes DetectedIssue / Communication to HAPI
+                                  ├─ writes DetectedIssue / Communication to HAPI
+                                  └─ announces new alerts: SSE to open clinic pages, web push to clinic devices
 HAPI ── rest-hook Subscription (internal network) ──► API /hooks/observation
 ```
 
@@ -49,6 +50,7 @@ HAPI ── rest-hook Subscription (internal network) ──► API /hooks/obser
 | FHIR server | HAPI FHIR JPA Server Starter | 8.12.0 (`hapiproject/hapi:v8.12.0-1`) | FHIR R4, rest-hook subscriptions enabled |
 | Database | PostgreSQL | 18 (alpine) | Local to the host; HAPI keeps connections open, which rules out scale-to-zero hosted DBs |
 | Reverse proxy / TLS | Caddy | 2.x | Automatic HTTPS; one site file per project |
+| Web push | `web-push` | 3.6 | VAPID keys generated on the host by `deploy.sh` on first deploy and kept in the server env file. Subscriptions (device addresses, not health data) are a JSON file on the API's `apidata` volume, never on the public FHIR server. Endpoints must be on a browser push service, so the server cannot be pointed at other hosts |
 | Advisory model | Google Gemini API (`GEMINI_API_KEY`, default model `gemini-3.5-flash-lite`) | — | Free tier from Google AI Studio; the key lives in the server env file, never in the repo. Optional: with no key the endpoint answers 503 and everything else is unchanged. The model is given one alert's own reasons and narrative and asked to rewrite them; it never sets or changes a risk level. Its output is stored as a `Communication` sent by a `Device`, with a `Provenance` naming that device as author |
 | Browser tests | Playwright | 1.63 | Five journeys (report, clinic reply, advisory, trends, map) run in CI against a build with `NEXT_PUBLIC_API_MOCK=1`, so they never depend on the deployed API |
 | Weather | Open-Meteo API | — | Free for non-commercial use, no key; CC BY 4.0 attribution ("Weather data by Open-Meteo.com"). Hourly rainfall, cached 1 h per site |
@@ -85,6 +87,8 @@ The risk engine (`api/src/rules.ts`, pure) implements the rules in PLAN.md secti
 
 `GET /sites/:id/bundle` (`api/src/bundle.ts`) exports one site as a FHIR `collection` Bundle built from the resources above (site and water body, cohort, baselines, clinics, 30 days of reports with their `Media`, alerts and `Communication`s), with public `/fhir` URLs as `fullUrl`s. The validation pipeline checks a sample Bundle built by the same code.
 
+**Live alerts.** When an evaluation raises a new issue (not a refresh of an active one), `alerts.ts` emits it on an in-process event hub (`events.ts`) with the clinics a `Communication` went to. `GET /events` holds a Server-Sent Events stream per open clinic page and forwards the alerts for that clinic; `push.ts` sends a web push to every device subscribed for one of those clinics and forgets subscriptions the push service reports gone (404/410). The Communication stays the record; the stream and the push only save polling. Caddy leaves `/events` uncompressed so events are not buffered. The service worker shows the push as a notification and opens the alert when tapped. `/loop` puts a citizen phone and a clinic phone on one page and times a report from Send to the clinic's banner.
+
 A site is re-evaluated on two paths:
 1. **`POST /reports`** evaluates synchronously, because the citizen's response lists the alerts raised.
 2. **FHIR Subscription**, the standard path for Observations written to the FHIR server by other systems. HAPI matches every new or updated citizen indicator Observation against the `citizen-observations` Subscription and delivers it as `PUT /hooks/observation/Observation/<id>` to the API over the internal Docker network. The API answers 204 at once (HAPI parses any response body as FHIR) and queues an evaluation of the Observation's site. Queued evaluations for a site coalesce, so a burst of notifications costs one evaluation. The hook never writes Observations, so there is no loop. Reports from the API trigger the hook too; the API remembers the Observation ids it wrote in the last 2 minutes and skips those notifications, because `POST /reports` has already evaluated the site. Caddy answers 404 for `/hooks*`, and the API also refuses hook calls carrying proxy headers (`X-Forwarded-For`, `X-Forwarded-Host`, `Via`). If Open-Meteo is down, rain-dependent rules do not fire and the reason says the weather was unavailable. For demo recordings, `WEATHER_OVERRIDE='{"rain24h":0,"rain7d":1.2}'` fixes rainfall; reasons then say "demo weather override".
@@ -96,7 +100,7 @@ A site is re-evaluated on two paths:
 | `web/` | Next.js frontend |
 | `api/` | Fastify API: `src/server.ts` routes, `src/fhir.ts` client, `src/oah.ts` codes, `src/mapping.ts` report mapping, `src/store.ts` site/clinic reads, `src/seed.ts` demo data, `src/rules.ts` risk rules, `src/weather.ts` Open-Meteo, `src/alerts.ts` DetectedIssue/Communication, `src/narrative.ts` alert narrative, `src/photos.ts` report photos (Media/Binary); `test/` unit tests (`npm test`) |
 | `fhir/application.yaml` | HAPI overrides (Postgres, R4, server address, subscriptions, CORS) |
-| `deploy/compose.yml` | Production stack: postgres, hapi, api (memory limits set) |
+| `deploy/compose.yml` | Production stack: postgres, hapi, api (memory limits set; `apidata` volume at `/data` for push subscriptions) |
 | `deploy/compose.local.yml` | Local override publishing ports 8080 (HAPI) and 3001 (API) |
 | `deploy/caddy/stream-to-clinic.caddy` | Caddy site block, installed onto the host by the deploy script |
 | `deploy/deploy.sh` | Runs on the host: creates secrets on first run, rebuilds, reloads Caddy |

@@ -1,5 +1,7 @@
 oneaquahealth.duckdns.org {
-	encode zstd gzip
+	# Live alert streams (Server-Sent Events) must reach the browser one event at a time, unbuffered.
+	@compressible not path /events
+	encode @compressible zstd gzip
 
 	# Public, read-only view of the FHIR server; writes go through the API.
 	@fhirRead {

@@ -82,3 +82,24 @@ test("the map lists every site with its risk, and links on to the trends", async
   await page.getByRole("link", { name: /over four weeks/ }).click();
   await expect(page.getByRole("heading", { name: "Catchment trends" })).toBeVisible();
 });
+
+test("a report on one phone reaches the clinic's phone live, with the FHIR steps in between", async ({ page }) => {
+  // Mosquito larvae at the upper Giofyros, warm water after rain: a clinic-facing alert not yet active.
+  await page.goto("/loop?site=Loc-Giofyros&clinic=clinic-heraklion-west");
+
+  const citizen = page.getByTestId("citizen-phone");
+  const clinic = page.getByTestId("clinic-phone");
+  await expect(clinic.locator("#live-status")).toHaveAttribute("data-status", "live");
+
+  await choose(page, "Diptera");
+  await choose(page, "Present");
+  await citizen.getByLabel("Your name").fill("E2E volunteer");
+  await citizen.getByRole("button", { name: "Send report" }).click();
+
+  await expect(citizen.getByRole("heading", { name: "Report saved" })).toBeVisible();
+  // The clinic hears about it without reloading: a banner, and the alert on top of its list.
+  await expect(clinic.getByTestId("alert-banner")).toContainText("Mosquito breeding conditions");
+  await expect(clinic.locator("#clinic-alert-list li[data-new]")).toHaveCount(1);
+  await expect(page.getByTestId("step-communication")).toHaveAttribute("data-state", "done");
+  await expect(page.locator("#loop-timer")).toHaveAttribute("data-state", "done");
+});

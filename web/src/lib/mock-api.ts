@@ -10,6 +10,7 @@ import type {
   Api,
   ClinicSummary,
   FhirBundle,
+  LiveAlertHandlers,
   Indicator,
   ObservationSummary,
   Presence,
@@ -223,6 +224,15 @@ function evaluate(site: Site): Finding[] {
   return findings;
 }
 
+// Open live streams in this tab. A newly raised alert reaches them a moment after the report's
+// response, as the API's Server-Sent Events do.
+const live = new Set<{ clinicId?: string; handlers: LiveAlertHandlers }>();
+function announce(alert: AlertSummary, clinicIds: string[]) {
+  for (const { clinicId, handlers } of live) {
+    if (!clinicId || clinicIds.includes(clinicId)) setTimeout(() => handlers.onAlert(structuredClone(alert)), 600);
+  }
+}
+
 // Returns alerts raised or updated for the site.
 function reevaluate(site: Site, at: string): AlertSummary[] {
   const changed: AlertSummary[] = [];
@@ -247,6 +257,7 @@ function reevaluate(site: Site, at: string): AlertSummary[] {
     if (existing && JSON.stringify(existing) === JSON.stringify(alert)) continue;
     alerts = [alert, ...alerts.filter((a) => a.id !== id)];
     changed.push(alert);
+    if (!existing && clinics.length) announce(alert, clinics.map((c) => c.id));
   }
   // Active alerts whose rule no longer fires are closed, as the API does.
   alerts = alerts.map((a) =>
@@ -405,6 +416,21 @@ export const mockApi: Api = {
       return updated;
     }, 400),
   getTrends: (days = 28) => run(() => trends(days)),
+  subscribeAlerts: (clinicId, handlers) => {
+    const entry = { clinicId, handlers };
+    live.add(entry);
+    handlers.onStatus?.("connecting");
+    const ready = setTimeout(() => handlers.onStatus?.("live"), 300);
+    return () => {
+      clearTimeout(ready);
+      live.delete(entry);
+    };
+  },
+  // Push needs a real server and a real push service, so demo mode says it is unavailable.
+  getPushKey: () => run(() => noPush()),
+  subscribePush: () => run(() => noPush()),
+  unsubscribePush: () => delay(undefined),
+  testPush: () => run(() => noPush()),
   requestAdvisory: (id) =>
     run(() => {
       const alert = alerts.find((a) => a.id === id);
@@ -420,6 +446,10 @@ export const mockApi: Api = {
       return advisory;
     }, 700),
 };
+
+function noPush(): never {
+  throw new ApiError("Web push is not available in demo mode", 503);
+}
 
 // Stand-in for the language model: the same shape of text, assembled from the alert's own reasons
 // so the offline demo shows the panel without a key or a network call.

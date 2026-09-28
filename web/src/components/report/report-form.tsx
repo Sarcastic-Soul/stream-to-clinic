@@ -31,7 +31,16 @@ const PRESENCE_VALUES: Presence[] = ["absent", "present", "abundant"];
 
 type Locate = { state: "idle" } | { state: "locating" } | { state: "error"; message: string } | { state: "found"; km: number };
 
-export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
+export function ReportForm({
+  initialSiteId,
+  onSending,
+  onReported,
+}: {
+  initialSiteId?: string;
+  /** Called as a valid report leaves the device (the /loop page times the round trip from here). */
+  onSending?: () => void;
+  onReported?: (result: ReportResult) => void;
+}) {
   const t = useTranslate();
   const sites = useApi(api.getSites);
   const indicators = useApi(api.getIndicators);
@@ -143,7 +152,12 @@ export function ReportForm({ initialSiteId }: { initialSiteId?: string }) {
     writeStored(REPORTER_KEY, reporter);
     try {
       if (!navigator.onLine) await queue();
-      else setResult({ report: await api.createReport(input), site });
+      else {
+        onSending?.();
+        const report = await api.createReport(input);
+        setResult({ report, site });
+        onReported?.(report);
+      }
     } catch (err) {
       if (isNetworkError(err)) await queue();
       else setError(err instanceof Error ? err.message : t("report.errorGeneric"));

@@ -13,6 +13,8 @@ import { highestLevel } from "./rules.js";
 import { adviseOnAlert, advisoryEnabled, loadAdvisory } from "./advisory.js";
 import { clampDays, loadTrends, TREND_DAYS } from "./trends.js";
 import { seed } from "./seed.js";
+import { alertEvents, isFor, sseFrame, type RaisedAlert } from "./events.js";
+import { addSubscription, checkSubscription, findSubscription, pushEnabled, removeSubscription, sendPush, startPush } from "./push.js";
 import { latestPerIndicator, loadClinics, loadSite, loadSites, siteObservations } from "./store.js";
 
 const ID_PATTERN = "^[A-Za-z0-9\\-.]{1,64}$";
@@ -260,6 +262,112 @@ app.post<{ Params: { id: string }; Body: { clinicId: string; action: AckAction; 
   },
 );
 
+// Live alerts for an open clinic page: Server-Sent Events, one "alert" event per newly raised alert
+// sent to that clinic (or every alert, without clinicId). The FHIR Communication is still the record;
+// this only saves the page from polling. EventSource reconnects on its own after a drop.
+const MAX_STREAMS = 200;
+let openStreams = 0;
+app.get<{ Querystring: { clinicId?: string } }>(
+  "/events",
+  {
+    schema: {
+      querystring: { type: "object", additionalProperties: false, properties: { clinicId: { type: "string", pattern: ID_PATTERN } } },
+    },
+  },
+  async (req, reply) => {
+    if (openStreams >= MAX_STREAMS) return reply.code(503).send({ error: "Too many live connections, try again shortly" });
+    const { clinicId } = req.query;
+    reply.hijack();
+    const res = reply.raw;
+    // Hijacked replies skip Fastify's header handling, so the CORS headers set by the plugin are copied by hand.
+    res.writeHead(200, {
+      ...(reply.getHeaders() as Record<string, string>),
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    openStreams++;
+    res.write(`retry: 5000\n\n${sseFrame("ready", { clinicId: clinicId ?? null, at: new Date().toISOString() })}`);
+    const onRaised = (raised: RaisedAlert) => {
+      if (isFor(clinicId, raised)) res.write(sseFrame("alert", raised.alert));
+    };
+    alertEvents.on("raised", onRaised);
+    // A comment line every 25 s keeps proxies from closing an idle stream.
+    const ping = setInterval(() => res.write(": ping\n\n"), 25_000);
+    req.raw.on("close", () => {
+      clearInterval(ping);
+      alertEvents.off("raised", onRaised);
+      openStreams--;
+    });
+  },
+);
+
+// Web push for installed clinic apps (see push.ts). The public key is what the browser subscribes with.
+app.get("/push/key", async (_req, reply) => {
+  if (!pushEnabled()) return reply.code(503).send({ error: "Web push is not configured on this server" });
+  return { publicKey: config.vapidPublicKey };
+});
+
+const SUBSCRIPTION_SCHEMA = {
+  type: "object",
+  required: ["endpoint", "keys"],
+  properties: {
+    endpoint: { type: "string", maxLength: 1000 },
+    keys: {
+      type: "object",
+      required: ["p256dh", "auth"],
+      properties: { p256dh: { type: "string", maxLength: 200 }, auth: { type: "string", maxLength: 100 } },
+    },
+  },
+} as const;
+
+app.post<{ Body: { clinicId: string; subscription: { endpoint: string; keys: { p256dh: string; auth: string } } } }>(
+  "/push/subscriptions",
+  {
+    schema: {
+      body: {
+        type: "object",
+        required: ["clinicId", "subscription"],
+        additionalProperties: false,
+        properties: { clinicId: { type: "string", pattern: ID_PATTERN }, subscription: SUBSCRIPTION_SCHEMA },
+      },
+    },
+  },
+  async (req, reply) => {
+    if (!pushEnabled()) return reply.code(503).send({ error: "Web push is not configured on this server" });
+    const { clinicId, subscription } = req.body;
+    const invalid = checkSubscription(subscription);
+    if (invalid) return reply.code(400).send({ error: invalid });
+    if (!(await loadClinics()).some((c) => c.id === clinicId)) return reply.code(404).send({ error: `Unknown clinic ${clinicId}` });
+    await addSubscription(clinicId, { endpoint: subscription.endpoint, keys: subscription.keys });
+    return reply.code(201).send({ clinicId, endpoint: subscription.endpoint });
+  },
+);
+
+const ENDPOINT_BODY = {
+  body: { type: "object", required: ["endpoint"], additionalProperties: false, properties: { endpoint: { type: "string", maxLength: 1000 } } },
+};
+
+app.post<{ Body: { endpoint: string } }>("/push/unsubscribe", { schema: ENDPOINT_BODY }, async (req, reply) => {
+  await removeSubscription(req.body.endpoint);
+  return reply.code(204).send();
+});
+
+// Sends a test notification to one device that is already subscribed, so a clinic can check it works.
+app.post<{ Body: { endpoint: string } }>("/push/test", { schema: ENDPOINT_BODY }, async (req, reply) => {
+  if (!pushEnabled()) return reply.code(503).send({ error: "Web push is not configured on this server" });
+  const sub = await findSubscription(req.body.endpoint);
+  if (!sub) return reply.code(404).send({ error: "This device is not subscribed" });
+  const sent = await sendPush(
+    sub,
+    { title: "Stream-to-Clinic test", body: "Notifications are on. Alerts for your clinic will appear like this.", url: `/clinic?clinic=${encodeURIComponent(sub.clinicId)}`, tag: "test" },
+    req.log,
+  );
+  if (!sent) return reply.code(502).send({ error: "The push service did not accept the notification" });
+  return { sent: true };
+});
+
 // Catchment view: several weeks of citizen reports per site and per region, for a health
 // authority deciding where to look, rather than a clinic acting on one alert.
 app.get<{ Querystring: { days?: number } }>(
@@ -277,6 +385,7 @@ app.get<{ Querystring: { days?: number } }>(
 );
 
 await app.listen({ host: "0.0.0.0", port: config.port });
+startPush(app.log);
 
 // Applies the seed (its synthetic history is dated relative to today) and re-runs every site's rules,
 // so alerts also close when their evidence ages out of the look-back window or the weather changes.
