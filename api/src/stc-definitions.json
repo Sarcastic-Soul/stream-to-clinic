@@ -1,0 +1,1033 @@
+[
+  {
+    "resourceType": "CodeSystem",
+    "status": "active",
+    "content": "complete",
+    "name": "AlertResponse",
+    "id": "alert-response",
+    "title": "What a clinic did about an alert",
+    "description": "The action a notified clinic reports back when it answers a Stream-to-Clinic alert.",
+    "version": "0.1.0",
+    "url": "https://oneaquahealth.duckdns.org/fhir/CodeSystem/alert-response",
+    "concept": [
+      {
+        "code": "staff-briefed",
+        "display": "Clinic staff briefed"
+      },
+      {
+        "code": "patients-advised",
+        "display": "Patients advised about the water"
+      },
+      {
+        "code": "authority-notified",
+        "display": "Local health authority notified"
+      },
+      {
+        "code": "no-action",
+        "display": "Noted, no action needed"
+      }
+    ],
+    "experimental": true,
+    "caseSensitive": true,
+    "count": 4
+  },
+  {
+    "resourceType": "CodeSystem",
+    "status": "active",
+    "content": "complete",
+    "name": "Presence",
+    "id": "presence",
+    "title": "Presence of a visual stream indicator",
+    "description": "How much of a visual indicator (foam, filamentous algae, diptera larvae) a citizen saw at a stream site.",
+    "version": "0.1.0",
+    "url": "https://oneaquahealth.duckdns.org/fhir/CodeSystem/presence",
+    "concept": [
+      {
+        "code": "absent",
+        "display": "Absent"
+      },
+      {
+        "code": "present",
+        "display": "Present"
+      },
+      {
+        "code": "abundant",
+        "display": "Abundant"
+      }
+    ],
+    "experimental": true,
+    "caseSensitive": true,
+    "count": 3
+  },
+  {
+    "resourceType": "CodeSystem",
+    "status": "active",
+    "content": "complete",
+    "name": "WaterHealthRisk",
+    "id": "water-health-risk",
+    "title": "Water-related health risks raised by Stream-to-Clinic",
+    "description": "The risks the Stream-to-Clinic rule engine can raise for a stream site.",
+    "version": "0.1.0",
+    "url": "https://oneaquahealth.duckdns.org/fhir/CodeSystem/water-health-risk",
+    "concept": [
+      {
+        "code": "algal-bloom",
+        "display": "Possible algal bloom"
+      },
+      {
+        "code": "sewage-overflow",
+        "display": "Possible sewage overflow"
+      },
+      {
+        "code": "mosquito-breeding",
+        "display": "Mosquito breeding conditions"
+      },
+      {
+        "code": "low-oxygen",
+        "display": "Low dissolved oxygen"
+      }
+    ],
+    "experimental": true,
+    "caseSensitive": true,
+    "count": 4
+  },
+  {
+    "resourceType": "ValueSet",
+    "status": "active",
+    "name": "AlertResponseVS",
+    "id": "alert-response",
+    "title": "What a clinic did about an alert",
+    "description": "All codes from the AlertResponse code system.",
+    "version": "0.1.0",
+    "url": "https://oneaquahealth.duckdns.org/fhir/ValueSet/alert-response",
+    "experimental": true,
+    "compose": {
+      "include": [
+        {
+          "system": "https://oneaquahealth.duckdns.org/fhir/CodeSystem/alert-response"
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "ValueSet",
+    "status": "active",
+    "name": "PresenceVS",
+    "id": "presence",
+    "title": "Presence of a visual stream indicator",
+    "description": "All codes from the Presence code system.",
+    "version": "0.1.0",
+    "url": "https://oneaquahealth.duckdns.org/fhir/ValueSet/presence",
+    "experimental": true,
+    "compose": {
+      "include": [
+        {
+          "system": "https://oneaquahealth.duckdns.org/fhir/CodeSystem/presence"
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "ValueSet",
+    "status": "active",
+    "name": "WaterHealthRiskVS",
+    "id": "water-health-risk",
+    "title": "Water-related health risks raised by Stream-to-Clinic",
+    "description": "All codes from the WaterHealthRisk code system.",
+    "version": "0.1.0",
+    "url": "https://oneaquahealth.duckdns.org/fhir/ValueSet/water-health-risk",
+    "experimental": true,
+    "compose": {
+      "include": [
+        {
+          "system": "https://oneaquahealth.duckdns.org/fhir/CodeSystem/water-health-risk"
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "StructureDefinition",
+    "id": "stc-advisor-device",
+    "url": "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-advisor-device",
+    "version": "0.1.0",
+    "name": "StcAdvisorDevice",
+    "title": "Advisory model",
+    "status": "draft",
+    "experimental": true,
+    "description": "The language model that drafts plain-language advisories from rule-engine alerts, as a Device so its output can be attributed to it. It never raises or changes an alert.",
+    "fhirVersion": "4.0.1",
+    "kind": "resource",
+    "abstract": false,
+    "type": "Device",
+    "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Device",
+    "derivation": "constraint",
+    "differential": {
+      "element": [
+        {
+          "id": "Device.status",
+          "path": "Device.status",
+          "patternCode": "active"
+        },
+        {
+          "id": "Device.deviceName",
+          "path": "Device.deviceName",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "Device.deviceName.type",
+          "path": "Device.deviceName.type",
+          "patternCode": "model-name"
+        },
+        {
+          "id": "Device.type",
+          "path": "Device.type",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "Device.type.text",
+          "path": "Device.type.text",
+          "min": 1
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "StructureDefinition",
+    "id": "stc-advisory-provenance",
+    "url": "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-advisory-provenance",
+    "version": "0.1.0",
+    "name": "StcAdvisoryProvenance",
+    "title": "Advisory provenance",
+    "status": "draft",
+    "experimental": true,
+    "description": "Lineage for a model-drafted advisory: the advisory model is the author and the alert it was derived from is the source.",
+    "fhirVersion": "4.0.1",
+    "kind": "resource",
+    "abstract": false,
+    "type": "Provenance",
+    "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Provenance",
+    "derivation": "constraint",
+    "differential": {
+      "element": [
+        {
+          "id": "Provenance.target",
+          "path": "Provenance.target",
+          "max": "1",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-clinic-advisory"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.activity",
+          "path": "Provenance.activity",
+          "min": 1,
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "CREATE",
+                "system": "http://terminology.hl7.org/CodeSystem/v3-DataOperation"
+              }
+            ]
+          },
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.agent",
+          "path": "Provenance.agent",
+          "slicing": {
+            "discriminator": [
+              {
+                "type": "pattern",
+                "path": "type"
+              }
+            ],
+            "rules": "open"
+          },
+          "min": 2
+        },
+        {
+          "id": "Provenance.agent:author",
+          "path": "Provenance.agent",
+          "sliceName": "author",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.agent:author.type",
+          "path": "Provenance.agent.type",
+          "min": 1,
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "author",
+                "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type"
+              }
+            ]
+          }
+        },
+        {
+          "id": "Provenance.agent:author.who",
+          "path": "Provenance.agent.who",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-advisor-device"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "Provenance.agent:author.who.reference",
+          "path": "Provenance.agent.who.reference",
+          "min": 1
+        },
+        {
+          "id": "Provenance.agent:assembler",
+          "path": "Provenance.agent",
+          "sliceName": "assembler",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.agent:assembler.type",
+          "path": "Provenance.agent.type",
+          "min": 1,
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "assembler",
+                "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type"
+              }
+            ]
+          }
+        },
+        {
+          "id": "Provenance.agent:assembler.who.display",
+          "path": "Provenance.agent.who.display",
+          "min": 1
+        },
+        {
+          "id": "Provenance.entity",
+          "path": "Provenance.entity",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.entity.role",
+          "path": "Provenance.entity.role",
+          "patternCode": "source"
+        },
+        {
+          "id": "Provenance.entity.what",
+          "path": "Provenance.entity.what",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-stream-risk-alert"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "StructureDefinition",
+    "id": "stc-clinic-advisory",
+    "url": "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-clinic-advisory",
+    "version": "0.1.0",
+    "name": "StcClinicAdvisory",
+    "title": "Model-drafted clinic advisory",
+    "status": "draft",
+    "experimental": true,
+    "description": "A stream risk alert rewritten in plain language for clinic staff by the advisory model. The sender is the model's Device, and a StcAdvisoryProvenance names it as author, so machine-written text is marked as such wherever it is read.",
+    "fhirVersion": "4.0.1",
+    "kind": "resource",
+    "abstract": false,
+    "type": "Communication",
+    "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Communication",
+    "derivation": "constraint",
+    "differential": {
+      "element": [
+        {
+          "id": "Communication.status",
+          "path": "Communication.status",
+          "patternCode": "completed"
+        },
+        {
+          "id": "Communication.category",
+          "path": "Communication.category",
+          "min": 1,
+          "max": "1",
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "instruction",
+                "system": "http://terminology.hl7.org/CodeSystem/communication-category"
+              }
+            ]
+          },
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.subject",
+          "path": "Communication.subject",
+          "min": 1,
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "http://hl7.eu/fhir/ig/oah/StructureDefinition/group-oah"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.about",
+          "path": "Communication.about",
+          "min": 1,
+          "max": "1",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-stream-risk-alert"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.sent",
+          "path": "Communication.sent",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.sender",
+          "path": "Communication.sender",
+          "min": 1,
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-advisor-device"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.sender.reference",
+          "path": "Communication.sender.reference",
+          "min": 1
+        },
+        {
+          "id": "Communication.sender.display",
+          "path": "Communication.sender.display",
+          "short": "The model name"
+        },
+        {
+          "id": "Communication.payload",
+          "path": "Communication.payload",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.payload.content[x]",
+          "path": "Communication.payload.content[x]",
+          "type": [
+            {
+              "code": "string"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "StructureDefinition",
+    "id": "stc-clinic-alert",
+    "url": "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-clinic-alert",
+    "version": "0.1.0",
+    "name": "StcClinicAlert",
+    "title": "Clinic alert",
+    "status": "draft",
+    "experimental": true,
+    "description": "A stream risk alert sent to a clinic that serves the affected stream site. Sent once per clinic when the alert is raised.",
+    "fhirVersion": "4.0.1",
+    "kind": "resource",
+    "abstract": false,
+    "type": "Communication",
+    "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Communication",
+    "derivation": "constraint",
+    "differential": {
+      "element": [
+        {
+          "id": "Communication.inResponseTo",
+          "path": "Communication.inResponseTo",
+          "max": "0"
+        },
+        {
+          "id": "Communication.status",
+          "path": "Communication.status",
+          "patternCode": "completed"
+        },
+        {
+          "id": "Communication.category",
+          "path": "Communication.category",
+          "min": 1,
+          "max": "1",
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "alert",
+                "system": "http://terminology.hl7.org/CodeSystem/communication-category"
+              }
+            ]
+          },
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.priority",
+          "path": "Communication.priority",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.subject",
+          "path": "Communication.subject",
+          "short": "The district cohort living near the stream site",
+          "min": 1,
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "http://hl7.eu/fhir/ig/oah/StructureDefinition/group-oah"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.topic",
+          "path": "Communication.topic",
+          "max": "0"
+        },
+        {
+          "id": "Communication.about",
+          "path": "Communication.about",
+          "min": 1,
+          "max": "1",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-stream-risk-alert"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.sent",
+          "path": "Communication.sent",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.recipient",
+          "path": "Communication.recipient",
+          "min": 1,
+          "max": "1",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "http://hl7.org/fhir/StructureDefinition/Organization"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.recipient.reference",
+          "path": "Communication.recipient.reference",
+          "min": 1
+        },
+        {
+          "id": "Communication.recipient.display",
+          "path": "Communication.recipient.display",
+          "min": 1
+        },
+        {
+          "id": "Communication.sender",
+          "path": "Communication.sender",
+          "min": 1
+        },
+        {
+          "id": "Communication.sender.display",
+          "path": "Communication.sender.display",
+          "min": 1
+        },
+        {
+          "id": "Communication.payload",
+          "path": "Communication.payload",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.payload.content[x]",
+          "path": "Communication.payload.content[x]",
+          "type": [
+            {
+              "code": "string"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "StructureDefinition",
+    "id": "stc-clinic-response",
+    "url": "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-clinic-response",
+    "version": "0.1.0",
+    "name": "StcClinicResponse",
+    "title": "Clinic response to an alert",
+    "status": "draft",
+    "experimental": true,
+    "description": "What a notified clinic did about a stream risk alert: a reply to the clinic alert it received, with a coded action, so the environmental side can see which warnings led to action.",
+    "fhirVersion": "4.0.1",
+    "kind": "resource",
+    "abstract": false,
+    "type": "Communication",
+    "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Communication",
+    "derivation": "constraint",
+    "differential": {
+      "element": [
+        {
+          "id": "Communication.inResponseTo",
+          "path": "Communication.inResponseTo",
+          "min": 1,
+          "max": "1",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-clinic-alert"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.status",
+          "path": "Communication.status",
+          "patternCode": "completed"
+        },
+        {
+          "id": "Communication.category",
+          "path": "Communication.category",
+          "min": 1,
+          "max": "1",
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "alert",
+                "system": "http://terminology.hl7.org/CodeSystem/communication-category"
+              }
+            ]
+          },
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.subject",
+          "path": "Communication.subject",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "http://hl7.eu/fhir/ig/oah/StructureDefinition/group-oah"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "Communication.topic",
+          "path": "Communication.topic",
+          "short": "What the clinic did",
+          "min": 1,
+          "mustSupport": true,
+          "binding": {
+            "strength": "required",
+            "valueSet": "https://oneaquahealth.duckdns.org/fhir/ValueSet/alert-response"
+          }
+        },
+        {
+          "id": "Communication.about",
+          "path": "Communication.about",
+          "min": 1,
+          "max": "1",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-stream-risk-alert"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.sent",
+          "path": "Communication.sent",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.received",
+          "path": "Communication.received",
+          "min": 1
+        },
+        {
+          "id": "Communication.sender",
+          "path": "Communication.sender",
+          "min": 1,
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "http://hl7.org/fhir/StructureDefinition/Organization"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.sender.reference",
+          "path": "Communication.sender.reference",
+          "min": 1
+        },
+        {
+          "id": "Communication.payload",
+          "path": "Communication.payload",
+          "short": "The clinic's note, or the action's display text",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "Communication.payload.content[x]",
+          "path": "Communication.payload.content[x]",
+          "type": [
+            {
+              "code": "string"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "StructureDefinition",
+    "id": "stc-report-provenance",
+    "url": "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-report-provenance",
+    "version": "0.1.0",
+    "name": "StcReportProvenance",
+    "title": "Citizen report provenance",
+    "status": "draft",
+    "experimental": true,
+    "description": "Who reported a citizen observation, which app assembled it and when it was recorded. Written for every report, so an alert's evidence traces back to a person and a moment.",
+    "fhirVersion": "4.0.1",
+    "kind": "resource",
+    "abstract": false,
+    "type": "Provenance",
+    "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Provenance",
+    "derivation": "constraint",
+    "differential": {
+      "element": [
+        {
+          "id": "Provenance.target",
+          "path": "Provenance.target",
+          "short": "The citizen observation, then its photo (if any)",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "http://hl7.eu/fhir/ig/oah/StructureDefinition/observation-indicators-oah",
+                "http://hl7.org/fhir/StructureDefinition/Media"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.activity",
+          "path": "Provenance.activity",
+          "min": 1,
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "CREATE",
+                "system": "http://terminology.hl7.org/CodeSystem/v3-DataOperation"
+              }
+            ]
+          },
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.agent",
+          "path": "Provenance.agent",
+          "slicing": {
+            "discriminator": [
+              {
+                "type": "pattern",
+                "path": "type"
+              }
+            ],
+            "rules": "open"
+          },
+          "min": 2
+        },
+        {
+          "id": "Provenance.agent:author",
+          "path": "Provenance.agent",
+          "sliceName": "author",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.agent:author.type",
+          "path": "Provenance.agent.type",
+          "min": 1,
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "author",
+                "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type"
+              }
+            ]
+          }
+        },
+        {
+          "id": "Provenance.agent:author.who",
+          "path": "Provenance.agent.who",
+          "short": "The citizen, by display name (reporters are not registered users)"
+        },
+        {
+          "id": "Provenance.agent:author.who.display",
+          "path": "Provenance.agent.who.display",
+          "min": 1
+        },
+        {
+          "id": "Provenance.agent:assembler",
+          "path": "Provenance.agent",
+          "sliceName": "assembler",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "Provenance.agent:assembler.type",
+          "path": "Provenance.agent.type",
+          "min": 1,
+          "patternCodeableConcept": {
+            "coding": [
+              {
+                "code": "assembler",
+                "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type"
+              }
+            ]
+          }
+        },
+        {
+          "id": "Provenance.agent:assembler.who.display",
+          "path": "Provenance.agent.who.display",
+          "min": 1
+        }
+      ]
+    }
+  },
+  {
+    "resourceType": "StructureDefinition",
+    "id": "stc-stream-risk-alert",
+    "url": "https://oneaquahealth.duckdns.org/fhir/StructureDefinition/stc-stream-risk-alert",
+    "version": "0.1.0",
+    "name": "StcStreamRiskAlert",
+    "title": "Stream risk alert",
+    "status": "draft",
+    "experimental": true,
+    "description": "A water-related health risk at a stream site, raised by the Stream-to-Clinic rule engine from citizen observations (ObservationIndicatorsOah) and weather. One active alert exists per site and risk; it closes when identifiedPeriod.end is set.",
+    "fhirVersion": "4.0.1",
+    "kind": "resource",
+    "abstract": false,
+    "type": "DetectedIssue",
+    "baseDefinition": "http://hl7.org/fhir/StructureDefinition/DetectedIssue",
+    "derivation": "constraint",
+    "differential": {
+      "element": [
+        {
+          "id": "DetectedIssue.identifier",
+          "path": "DetectedIssue.identifier",
+          "min": 1,
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "DetectedIssue.identifier.system",
+          "path": "DetectedIssue.identifier.system",
+          "min": 1,
+          "fixedUri": "https://oneaquahealth.duckdns.org/fhir/sid/alert"
+        },
+        {
+          "id": "DetectedIssue.identifier.value",
+          "path": "DetectedIssue.identifier.value",
+          "short": "<site id>:<risk code>, unique among active alerts",
+          "min": 1
+        },
+        {
+          "id": "DetectedIssue.status",
+          "path": "DetectedIssue.status",
+          "patternCode": "final"
+        },
+        {
+          "id": "DetectedIssue.code",
+          "path": "DetectedIssue.code",
+          "min": 1,
+          "mustSupport": true,
+          "binding": {
+            "strength": "required",
+            "valueSet": "https://oneaquahealth.duckdns.org/fhir/ValueSet/water-health-risk"
+          }
+        },
+        {
+          "id": "DetectedIssue.code.text",
+          "path": "DetectedIssue.code.text",
+          "min": 1
+        },
+        {
+          "id": "DetectedIssue.severity",
+          "path": "DetectedIssue.severity",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "DetectedIssue.identified[x]",
+          "path": "DetectedIssue.identified[x]",
+          "min": 1,
+          "type": [
+            {
+              "code": "Period"
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "DetectedIssue.identified[x].start",
+          "path": "DetectedIssue.identified[x].start",
+          "min": 1
+        },
+        {
+          "id": "DetectedIssue.identified[x].end",
+          "path": "DetectedIssue.identified[x].end",
+          "short": "Set when a later evaluation no longer meets the rule: the alert is closed"
+        },
+        {
+          "id": "DetectedIssue.author",
+          "path": "DetectedIssue.author",
+          "min": 1
+        },
+        {
+          "id": "DetectedIssue.author.display",
+          "path": "DetectedIssue.author.display",
+          "min": 1
+        },
+        {
+          "id": "DetectedIssue.implicated",
+          "path": "DetectedIssue.implicated",
+          "short": "The stream site at risk",
+          "min": 1,
+          "max": "1",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "http://hl7.eu/fhir/ig/oah/StructureDefinition/location-oah"
+              ]
+            }
+          ],
+          "mustSupport": true
+        },
+        {
+          "id": "DetectedIssue.evidence",
+          "path": "DetectedIssue.evidence",
+          "short": "One entry per condition of the rule that was met",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "DetectedIssue.evidence.code",
+          "path": "DetectedIssue.evidence.code",
+          "min": 1,
+          "max": "1"
+        },
+        {
+          "id": "DetectedIssue.evidence.code.text",
+          "path": "DetectedIssue.evidence.code.text",
+          "short": "The condition in plain language",
+          "min": 1
+        },
+        {
+          "id": "DetectedIssue.evidence.detail",
+          "path": "DetectedIssue.evidence.detail",
+          "short": "The citizen observations behind the condition, if any",
+          "type": [
+            {
+              "code": "Reference",
+              "targetProfile": [
+                "http://hl7.org/fhir/StructureDefinition/Observation"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "DetectedIssue.detail",
+          "path": "DetectedIssue.detail",
+          "short": "Summary line, then the numbered steps of the engine's decision",
+          "min": 1,
+          "mustSupport": true
+        },
+        {
+          "id": "DetectedIssue.mitigation",
+          "path": "DetectedIssue.mitigation",
+          "short": "What clinicians should watch for; absent for environment-only risks",
+          "max": "1",
+          "mustSupport": true
+        },
+        {
+          "id": "DetectedIssue.mitigation.action.text",
+          "path": "DetectedIssue.mitigation.action.text",
+          "min": 1
+        }
+      ]
+    }
+  }
+]
