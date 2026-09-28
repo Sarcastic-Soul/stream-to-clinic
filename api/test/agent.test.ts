@@ -5,7 +5,7 @@ import { ToolInputError, compactResource, guardSearch, inputJsonSchema, runTool,
 import { config } from "../src/config.js";
 
 config.geminiApiKey = "test-key";
-config.geminiModel = "gemini-test";
+config.geminiModels = ["gemini-test"];
 
 type Body = { contents: { role: string; parts: Record<string, unknown>[] }[]; toolConfig: { functionCallingConfig: { mode: string } } };
 
@@ -93,6 +93,27 @@ test("model failures become clear errors", async () => {
     askAgent("q?", { fetch: scriptedModel([{ candidates: [{ content: { role: "model", parts: [] } }] }]).fetch }),
     (err: AgentError) => err.status === 502 && /no answer/.test(err.message),
   );
+});
+
+test("a busy model hands the question to the next one", async () => {
+  config.geminiModels = ["gemini-busy", "gemini-free"];
+  try {
+    const urls: string[] = [];
+    const model = scriptedModel([new Response("{}", { status: 503 }), text("Almyros has an alert.")]);
+    const answer = await askAgent("q?", {
+      fetch: ((url: string, init: RequestInit) => (urls.push(url), model.fetch(url, init))) as typeof fetch,
+    });
+    assert.equal(answer.model, "gemini-free");
+    assert.equal(answer.answer, "Almyros has an alert.");
+    assert.deepEqual(urls.map((u) => /models\/([^:]+)/.exec(u)![1]), ["gemini-busy", "gemini-free"]);
+    // A real failure is not retried on another model.
+    await assert.rejects(
+      askAgent("q?", { fetch: scriptedModel([new Response("{}", { status: 400 })]).fetch }),
+      (err: AgentError) => /400/.test(err.message),
+    );
+  } finally {
+    config.geminiModels = ["gemini-test"];
+  }
 });
 
 test("without a key the agent answers 503", async () => {

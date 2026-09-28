@@ -23,7 +23,12 @@ export const config = {
   // Optional: key for the plain-language advisory (Google AI Studio free tier). Unset on a server
   // means the advisory endpoint answers 503 and everything else works as before.
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+  // Models to try in order, comma-separated. The free tier sometimes answers "high demand" (503) or
+  // hangs for one model while another is fine, so a busy model hands the question to the next.
+  geminiModels: (process.env.GEMINI_MODEL || "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.6-flash")
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean),
   // Optional: VAPID keys for web push to clinic devices (`npx web-push generate-vapid-keys`).
   // Unset means push is off; open clinic pages still get alerts over Server-Sent Events.
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",

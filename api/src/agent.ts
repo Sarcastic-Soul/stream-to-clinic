@@ -8,6 +8,8 @@ import { TOOLS, TOOL_NAMES, ToolInputError, inputJsonSchema, runTool, type ToolR
 export const MAX_ROUNDS = 6;
 const MAX_CALLS_PER_ROUND = 4;
 const TOTAL_TIMEOUT_MS = 55_000;
+// One model call; a model that hangs longer than this is treated as busy.
+const MODEL_CALL_TIMEOUT_MS = 20_000;
 const TOOL_RESULT_CHARS = 14_000;
 
 export interface AgentStep {
@@ -30,6 +32,8 @@ export class AgentError extends Error {
   constructor(
     message: string,
     readonly status: 502 | 503 | 504,
+    /** The model was busy or too slow: another model may still answer. */
+    readonly busy = false,
   ) {
     super(message);
   }
@@ -100,12 +104,28 @@ const answerText = (content: Content | undefined) =>
     .trim();
 
 export async function askAgent(question: string, deps: AgentDeps = {}): Promise<AgentAnswer> {
-  const { geminiApiKey, geminiModel } = config;
-  if (!geminiApiKey) throw new AgentError("The agent model is not configured on this server", 503);
+  const { geminiApiKey, geminiModels } = config;
+  if (!geminiApiKey || !geminiModels.length) throw new AgentError("The agent model is not configured on this server", 503);
+  const deadline = Date.now() + TOTAL_TIMEOUT_MS;
+  // A busy model hands the whole question to the next one: thought signatures belong to the model
+  // that wrote them, so a conversation cannot switch models halfway.
+  let busy: AgentError | undefined;
+  for (const model of geminiModels) {
+    try {
+      return await askModel(model, question, deadline, deps);
+    } catch (err) {
+      if (!(err instanceof AgentError) || !err.busy) throw err;
+      busy = err;
+    }
+  }
+  throw busy!;
+}
+
+async function askModel(geminiModel: string, question: string, deadline: number, deps: AgentDeps): Promise<AgentAnswer> {
+  const { geminiApiKey } = config;
   const doFetch = deps.fetch ?? fetch;
   const run = deps.runTool ?? runTool;
   const now = deps.now ?? (() => new Date());
-  const deadline = Date.now() + TOTAL_TIMEOUT_MS;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
   const contents: Content[] = [{ role: "user", parts: [{ text: question }] }];
@@ -126,13 +146,14 @@ export async function askAgent(question: string, deps: AgentDeps = {}): Promise<
           toolConfig: { functionCallingConfig: { mode: allowTools ? "AUTO" : "NONE" } },
           generationConfig: { maxOutputTokens: 1024 },
         }),
-        signal: AbortSignal.timeout(Math.min(remaining, 25_000)),
+        signal: AbortSignal.timeout(Math.min(remaining, MODEL_CALL_TIMEOUT_MS)),
       });
     } catch (err) {
-      if (err instanceof Error && err.name === "TimeoutError") throw new AgentError("The agent took too long to answer", 504);
+      if (err instanceof Error && err.name === "TimeoutError") throw new AgentError("The agent took too long to answer", 504, true);
       throw new AgentError("The agent model could not be reached", 502);
     }
-    if (response.status === 429) throw new AgentError("The agent model is busy (free-tier limit). Try again in a minute.", 502);
+    if (response.status === 429 || response.status === 503)
+      throw new AgentError("The agent model is busy (free-tier limit). Try again in a minute.", 502, true);
     if (!response.ok) throw new AgentError(`Model request failed (${response.status})`, 502);
     const body = (await response.json()) as GeminiResponse;
     if (body.promptFeedback?.blockReason) throw new AgentError(`The model declined the question (${body.promptFeedback.blockReason})`, 502);

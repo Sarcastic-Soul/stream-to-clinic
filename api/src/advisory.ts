@@ -118,27 +118,42 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
-/** Calls the model. Throws on a failed or empty response; callers decide what to do about it. */
-export async function draftAdvisory(alert: AlertSummary): Promise<string> {
-  const { geminiApiKey, geminiModel } = config;
-  if (!geminiApiKey) throw new Error("No model key configured");
+/** Calls the models in turn until one answers. Throws on a failed or empty response; callers decide what to do about it. */
+export async function draftAdvisory(alert: AlertSummary): Promise<{ text: string; model: string }> {
+  const { geminiApiKey, geminiModels } = config;
+  if (!geminiApiKey || !geminiModels.length) throw new Error("No model key configured");
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: buildPrompt(alert) }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 400 },
-    }),
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!response.ok) throw new Error(`Model request failed (${response.status})`);
+  let lastError: Error | undefined;
+  for (const model of geminiModels) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: buildPrompt(alert) }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 400 },
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (err) {
+      // A model that hangs is as busy as one that says so: try the next.
+      lastError = err instanceof Error && err.name === "TimeoutError" ? new Error("The advisory model took too long") : (err as Error);
+      continue;
+    }
+    if (response.status === 429 || response.status === 503) {
+      lastError = new Error(`Model request failed (${response.status})`);
+      continue;
+    }
+    if (!response.ok) throw new Error(`Model request failed (${response.status})`);
 
-  const body = (await response.json()) as GeminiResponse;
-  const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim();
-  if (!text) throw new Error(body.promptFeedback?.blockReason ?? "Model returned no text");
-  return `${text}\n\n${DISCLAIMER}`;
+    const body = (await response.json()) as GeminiResponse;
+    const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim();
+    if (!text) throw new Error(body.promptFeedback?.blockReason ?? "Model returned no text");
+    return { text: `${text}\n\n${DISCLAIMER}`, model };
+  }
+  throw lastError ?? new Error("The advisory model could not be reached");
 }
 
 export async function loadAdvisory(alertId: string): Promise<Advisory | undefined> {
@@ -162,16 +177,16 @@ export async function adviseOnAlert(alert: AlertSummary | undefined): Promise<Ad
   if (existing) return existing;
   if (!advisoryEnabled()) return { error: "The advisory model is not configured on this server", status: 503 };
 
-  let text: string;
+  let draft: { text: string; model: string };
   try {
-    text = await draftAdvisory(alert);
+    draft = await draftAdvisory(alert);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "The advisory model could not be reached", status: 502 };
   }
 
   const now = new Date().toISOString();
-  const created = await fhir.create(toAdvisoryCommunication(alert, text, config.geminiModel, now));
+  const created = await fhir.create(toAdvisoryCommunication(alert, draft.text, draft.model, now));
   if (!created.id) return { error: "The advisory could not be stored", status: 502 };
-  await fhir.create(toAdvisoryProvenance(created.id, alert, config.geminiModel, now));
+  await fhir.create(toAdvisoryProvenance(created.id, alert, draft.model, now));
   return toAdvisory(created) ?? { error: "The advisory could not be stored", status: 502 };
 }
