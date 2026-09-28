@@ -25,6 +25,25 @@ test("a citizen files a report and sees the FHIR record it became", async ({ pag
   await expect(page.getByText("Clinics serving this site have been notified.")).toBeVisible();
 });
 
+test("a citizen follows a report through to the clinics it reached", async ({ page }) => {
+  await page.goto("/report?site=Loc-Almyros");
+  await choose(page, "Filamentous algae");
+  await choose(page, "Abundant");
+  await page.getByLabel("Your name").fill("E2E volunteer");
+  await page.getByRole("button", { name: "Send report" }).click();
+  await page.getByTestId("follow-report").click();
+
+  await expect(page.getByRole("heading", { name: "What happened to your report" })).toBeVisible();
+  await expect(page.getByTestId("journey-reading")).toHaveText("Filamentous algae: Abundant");
+  const step = (kind: string) => page.locator(`[data-testid="journey-step"][data-kind="${kind}"]`);
+  await expect(step("stored").getByRole("link", { name: /^Provenance\// })).toBeVisible();
+  await expect(step("checked")).toContainText("cited as evidence in 1 alert");
+  await expect(page.getByRole("heading", { name: "Possible algal bloom" })).toBeVisible();
+  // Both clinics serving Almyros were told, and the page waits for their reply.
+  await expect(step("notified")).toHaveCount(2);
+  await expect(step("waiting")).toBeVisible();
+});
+
 test("a notified clinic answers an alert and the list shows it answered", async ({ page }) => {
   await page.goto("/clinic?clinic=clinic-heraklion-west");
 

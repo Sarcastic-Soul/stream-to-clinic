@@ -7,6 +7,7 @@ import { FhirError, fhir } from "./fhir.js";
 import { checkValue, resolveObservedAt, toObservationSummary, toOahObservation } from "./mapping.js";
 import { indicatorList, isCitizenIndicator, OAH_PROFILES, PRESENCE_VALUES, type Presence } from "./oah.js";
 import { createWithPhoto, loadPhoto, parsePhoto } from "./photos.js";
+import { loadJourney } from "./journey.js";
 import { recordProvenance } from "./provenance.js";
 import { RecentIds } from "./recent.js";
 import { highestLevel } from "./rules.js";
@@ -163,6 +164,13 @@ app.post<{ Body: ReportBody }>(
     return reply.code(201).send({ observation, fhirUrl: `${config.publicFhirUrl}/Observation/${created.id}`, alerts });
   },
 );
+
+// Everything that happened to one citizen report, for the reporter's "what happened" page.
+app.get<{ Params: { id: string } }>("/reports/:id/journey", { schema: ID_PARAMS }, async (req, reply) => {
+  const journey = await loadJourney(req.params.id);
+  if (!journey) return reply.code(404).send({ error: `Unknown report ${req.params.id}` });
+  return journey;
+});
 
 const PHOTO_CACHE = "public, max-age=31536000, immutable";
 app.get<{ Params: { id: string } }>("/photos/:id", { schema: ID_PARAMS }, async (req, reply) => {

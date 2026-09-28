@@ -183,6 +183,21 @@ export interface ReportResult {
   alerts: AlertSummary[];
 }
 
+// GET /reports/:id/journey: what the system did with one citizen report.
+export interface JourneyAlert extends AlertSummary {
+  // Clinics the alert was sent to, oldest first; empty for environmental-only risks.
+  notified: { clinicId: string; clinicName: string; at: string; fhirUrl: string }[];
+}
+
+export interface ReportJourney {
+  report: ObservationSummary;
+  site: { id: string; name: string; waterBody: string };
+  fhirUrl: string;
+  provenance?: { recorded: string; agents: string[]; fhirUrl: string };
+  // Alerts that cited the report as evidence, oldest first.
+  alerts: JourneyAlert[];
+}
+
 export interface AlertFilter {
   clinicId?: string;
   siteId?: string;
@@ -217,6 +232,7 @@ export interface Api {
   getSite(id: string): Promise<SiteDetail>;
   getSiteBundle(id: string): Promise<FhirBundle>;
   createReport(input: ReportInput): Promise<ReportResult>;
+  getReportJourney(id: string): Promise<ReportJourney>;
   getClinics(): Promise<ClinicSummary[]>;
   getAlerts(filter?: AlertFilter): Promise<AlertSummary[]>;
   getAlert(id: string): Promise<AlertSummary>;

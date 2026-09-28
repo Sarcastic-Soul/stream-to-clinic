@@ -3,6 +3,7 @@
 
 import { createStore, del, entries, set } from "idb-keyval";
 import { ApiError, api } from "./api";
+import { rememberReport } from "./my-reports";
 import type { ReportInput, ReportResult } from "./types";
 
 export interface QueuedReport {
@@ -57,6 +58,7 @@ export function flushQueue(): Promise<FlushOutcome[]> {
       for (const item of await listQueued()) {
         try {
           const result = await api.createReport(item.input);
+          rememberReport({ id: item.input.siteId, name: item.siteName }, result);
           outcomes.push({ item, ok: true, result });
         } catch (error) {
           if (!(error instanceof ApiError) || error.status === 0 || error.status >= 500) break;

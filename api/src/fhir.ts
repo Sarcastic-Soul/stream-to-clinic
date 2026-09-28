@@ -53,6 +53,11 @@ export const fhir = {
     }
   },
   search,
+  // Every stored version of one resource, newest first.
+  history: async <K extends fhir4.FhirResource["resourceType"]>(type: K, id: string, count = 50) => {
+    const bundle = await request<fhir4.Bundle>(`/${type}/${encodeURIComponent(id)}/_history?_count=${count}`);
+    return (bundle.entry ?? []).flatMap((e) => (e.resource?.resourceType === type ? [e.resource as ResourceOf<K>] : []));
+  },
   transaction: (bundle: fhir4.Bundle) =>
     request<fhir4.Bundle>("/", { method: "POST", body: JSON.stringify(bundle) }),
 };

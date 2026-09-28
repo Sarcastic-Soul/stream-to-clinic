@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { CircleCheckIcon, ExternalLinkIcon } from "lucide-react";
+import { ArrowRightIcon, CircleCheckIcon, ExternalLinkIcon, RouteIcon } from "lucide-react";
 import { AlertCard } from "@/components/alert-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useTranslate } from "@/hooks/use-locale";
@@ -71,6 +71,16 @@ export function ReportSuccess({ report, site, indicator, onReportAnother }: Prop
           </a>
         </dd>
       </dl>
+
+      <Link
+        href={`/reports/${encodeURIComponent(observation.id)}`}
+        data-testid="follow-report"
+        className="group flex items-center gap-3 rounded-2xl border border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 font-medium text-sky-900 transition-colors hover:border-sky-400 dark:border-sky-900 dark:from-sky-950/60 dark:to-cyan-950/40 dark:text-sky-100"
+      >
+        <RouteIcon className="size-5 shrink-0" aria-hidden />
+        <span className="flex-1">{t("journey.follow")}</span>
+        <ArrowRightIcon className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
+      </Link>
 
       {alerts.length > 0 && (
         <section aria-labelledby="raised-heading" className="space-y-2">

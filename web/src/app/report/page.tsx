@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MyReports } from "@/components/report/my-reports";
 import { ReportForm } from "@/components/report/report-form";
 import { ReportIntro } from "@/components/report/report-intro";
 
@@ -11,6 +12,7 @@ export default async function ReportPage({ searchParams }: PageProps<"/report">)
     <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
       <ReportIntro />
       <ReportForm initialSiteId={typeof site === "string" ? site : undefined} />
+      <MyReports />
     </div>
   );
 }

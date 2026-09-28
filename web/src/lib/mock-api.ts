@@ -14,6 +14,7 @@ import type {
   Indicator,
   ObservationSummary,
   Presence,
+  ReportJourney,
   RiskLevel,
   SiteDetail,
   SiteSummary,
@@ -123,6 +124,8 @@ SITES.forEach((site, s) => {
 });
 
 let alerts: AlertSummary[] = [];
+// Which alerts ever cited each observation as evidence, as the API reads from DetectedIssue history.
+const citedBy = new Map<string, Set<string>>();
 
 const LEVEL_ORDER: RiskLevel[] = ["none", "low", "medium", "high"];
 const maxLevel = (levels: RiskLevel[]) =>
@@ -254,6 +257,7 @@ function reevaluate(site: Site, at: string): AlertSummary[] {
         communications: clinics.map((c) => `${FHIR_URL}/Communication/${id}-${c.id}`),
       },
     };
+    for (const obsId of alert.evidence) citedBy.set(obsId, (citedBy.get(obsId) ?? new Set()).add(id));
     if (existing && JSON.stringify(existing) === JSON.stringify(alert)) continue;
     alerts = [alert, ...alerts.filter((a) => a.id !== id)];
     changed.push(alert);
@@ -375,6 +379,7 @@ export const mockApi: Api = {
         alerts: reevaluate(site, new Date().toISOString()),
       };
     }, 400),
+  getReportJourney: (id) => run(() => journey(id)),
   getClinics: () => delay(CLINICS),
   getAlerts: (filter = {}) =>
     run(() => {
@@ -446,6 +451,31 @@ export const mockApi: Api = {
       return advisory;
     }, 700),
 };
+
+function journey(id: string): ReportJourney {
+  const found = [...observationsBySite.entries()].flatMap(([siteId, list]) => list.filter((o) => o.id === id).map((o) => ({ siteId, o })))[0];
+  if (!found) throw new ApiError(`Unknown report ${id}`, 404);
+  const site = findSite(found.siteId);
+  const ids = citedBy.get(id) ?? new Set();
+  return {
+    report: found.o,
+    site: { id: site.id, name: site.name, waterBody: site.waterBody },
+    fhirUrl: `${FHIR_URL}/Observation/${id}`,
+    provenance: { recorded: found.o.observedAt, agents: [found.o.reporter, "Stream-to-Clinic (citizen report app)"], fhirUrl: `${FHIR_URL}/Provenance/prov-${id}` },
+    alerts: alerts
+      .filter((a) => ids.has(a.id))
+      .map((a) => ({
+        ...a,
+        notified: (a.watchFor ? CLINICS.filter((c) => c.siteIds.includes(a.siteId)) : []).map((c) => ({
+          clinicId: c.id,
+          clinicName: c.name,
+          at: a.createdAt,
+          fhirUrl: `${FHIR_URL}/Communication/${a.id}-${c.id}`,
+        })),
+      }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+  };
+}
 
 function noPush(): never {
   throw new ApiError("Web push is not available in demo mode", 503);

@@ -147,6 +147,21 @@ interface Trends {
   regions: RegionTrend[];  // by region name
   sites: SiteTrend[];      // worst risk first, then most reports
 }
+
+// GET /reports/:id/journey: what the system did with one citizen report.
+interface JourneyAlert extends AlertSummary {
+  notified: { clinicId: string; clinicName: string; at: string; fhirUrl: string }[];
+                           // the Communications sent to clinics, oldest first; [] for environmental risks
+  advisory?: Advisory;
+}
+
+interface ReportJourney {
+  report: ObservationSummary;
+  site: { id: string; name: string; waterBody: string };
+  fhirUrl: string;         // the Observation
+  provenance?: { recorded: string; agents: string[]; fhirUrl: string };
+  alerts: JourneyAlert[];  // DetectedIssues that cite the report as evidence (in any version), oldest first
+}
 ```
 
 ## Endpoints
@@ -159,6 +174,7 @@ interface Trends {
 | GET | `/sites/:id` | `SiteDetail` or 404 |
 | GET | `/sites/:id/bundle` | FHIR R4 `Bundle` (type `collection`, `application/fhir+json`, sent as a `<siteId>-bundle.json` download) or 404. Contains the site `Location` and its water body, the district `Group` and its health-measure baselines, the serving clinics (`Organization`, `HealthcareService`), the last 30 days of citizen `Observation`s (up to 200) with their photo `Media` (the `Binary` stays a link), and the site's `DetectedIssue`s (active and closed) with their `Communication`s. `fullUrl`s are public `/fhir` URLs |
 | POST | `/reports` | `201 { observation: ObservationSummary, fhirUrl: string, alerts: AlertSummary[] }` — `alerts` lists alerts raised or updated by this report. Also writes a FHIR `Provenance` naming the reporter as author and the app as assembler, targeting the `Observation` (and its photo `Media`); a failed lineage write is logged, never fatal |
+| GET | `/reports/:id/journey` | `ReportJourney` for a citizen `Observation`, or 404. An alert counts if any stored version of its `DetectedIssue` cited the report, since the engine rewrites active alerts in place as new reports arrive |
 | GET | `/clinics` | `ClinicSummary[]` |
 | GET | `/alerts?clinicId=&siteId=` | Active `AlertSummary[]`, newest first, both filters optional. `clinicId` returns only alerts sent to that clinic, so environmental-only risks (low oxygen) are excluded |
 | GET | `/alerts/:id` | `AlertSummary` (active or closed), plus `advisory: Advisory` when one has been drafted, or 404 |

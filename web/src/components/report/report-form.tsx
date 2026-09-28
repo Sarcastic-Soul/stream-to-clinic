@@ -14,6 +14,7 @@ import { useApi } from "@/hooks/use-api";
 import { useTranslate } from "@/hooks/use-locale";
 import { api } from "@/lib/api";
 import { distanceKm, indicatorLabel, presenceLabel, unitLabel } from "@/lib/format";
+import { rememberReport } from "@/lib/my-reports";
 import { QUEUE_EVENT, enqueueReport, isNetworkError, listQueued, type QueuedReport } from "@/lib/report-queue";
 import { readStored, writeStored } from "@/lib/storage";
 import type { Presence, ReportInput, ReportResult, SiteSummary } from "@/lib/types";
@@ -155,6 +156,7 @@ export function ReportForm({
       else {
         onSending?.();
         const report = await api.createReport(input);
+        rememberReport(site, report);
         setResult({ report, site });
         onReported?.(report);
       }

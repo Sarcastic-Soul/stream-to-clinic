@@ -64,7 +64,7 @@ const SEVERITY: Record<Exclude<RiskLevel, "none">, fhir4.DetectedIssue["severity
 
 const alertKey = (siteId: string, risk: RiskId) => `${siteId}:${risk}`;
 const publicUrl = (reference: string) => `${config.publicFhirUrl}/${reference}`;
-const isActive = (issue: fhir4.DetectedIssue) => !issue.identifiedPeriod?.end;
+export const isActive = (issue: fhir4.DetectedIssue) => !issue.identifiedPeriod?.end;
 
 export function toDetectedIssue(
   site: Site,
@@ -117,14 +117,14 @@ export function toCommunication(site: Site, decision: RiskDecision, issueRef: st
 
 export interface IssueCommunications {
   /** Alerts sent out to clinics. */
-  sent: { id: string; clinicId: string }[];
+  sent: { id: string; clinicId: string; clinicName: string; at: string }[];
   /** Replies from those clinics, oldest first. */
   replies: Acknowledgement[];
 }
 
 // Maps Communications back to the DetectedIssue each one is about. A Communication with
 // inResponseTo is a clinic answering; anything else is us notifying a clinic.
-async function loadCommunications() {
+export async function loadCommunications() {
   const { matches } = await fhir.search("Communication", {
     category: `${ALERT_CATEGORY.system}|${ALERT_CATEGORY.code}`,
     _sort: "-_lastUpdated",
@@ -141,7 +141,10 @@ async function loadCommunications() {
     if (!issueId || !comm.id) continue;
     const reply = toAcknowledgement(comm);
     if (reply) forIssue(issueId).replies.push(reply);
-    else forIssue(issueId).sent.push({ id: comm.id, clinicId: comm.recipient?.[0]?.reference?.replace("Organization/", "") ?? "" });
+    else {
+      const clinicId = comm.recipient?.[0]?.reference?.replace("Organization/", "") ?? "";
+      forIssue(issueId).sent.push({ id: comm.id, clinicId, clinicName: comm.recipient?.[0]?.display ?? clinicId, at: comm.sent ?? "" });
+    }
   }
   for (const entry of byIssue.values()) entry.replies.sort((a, b) => a.at.localeCompare(b.at));
   return byIssue;
@@ -164,7 +167,7 @@ export function toAcknowledgement(comm: fhir4.Communication): Acknowledgement | 
   };
 }
 
-type Communications = Awaited<ReturnType<typeof loadCommunications>>;
+export type Communications = Awaited<ReturnType<typeof loadCommunications>>;
 
 export function toAlertSummary(issue: fhir4.DetectedIssue, comms: Communications): AlertSummary | undefined {
   const risk = issue.code?.coding?.find((c) => c.system === RISK_SYSTEM)?.code as RiskId | undefined;

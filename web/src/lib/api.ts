@@ -48,6 +48,7 @@ const httpApi: Api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     }),
+  getReportJourney: (id) => request(`/reports/${enc(id)}/journey`),
   getClinics: () => request("/clinics"),
   getAlerts: (filter: AlertFilter = {}) => {
     const params = new URLSearchParams();
@@ -95,6 +96,7 @@ export const api: Api = {
   getSite: (id) => client().then((c) => c.getSite(id)),
   getSiteBundle: (id) => client().then((c) => c.getSiteBundle(id)),
   createReport: (input) => client().then((c) => c.createReport(input)),
+  getReportJourney: (id) => client().then((c) => c.getReportJourney(id)),
   getClinics: () => client().then((c) => c.getClinics()),
   getAlerts: (filter) => client().then((c) => c.getAlerts(filter)),
   getAlert: (id) => client().then((c) => c.getAlert(id)),
