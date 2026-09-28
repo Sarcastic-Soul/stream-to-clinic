@@ -12,6 +12,8 @@ import { recordProvenance } from "./provenance.js";
 import { RecentIds } from "./recent.js";
 import { highestLevel } from "./rules.js";
 import { adviseOnAlert, advisoryEnabled, loadAdvisory } from "./advisory.js";
+import { AgentError, AgentGuard, agentEnabled, askAgent } from "./agent.js";
+import { registerMcp } from "./mcp.js";
 import { clampDays, loadTrends, TREND_DAYS } from "./trends.js";
 import { seed } from "./seed.js";
 import { alertEvents, isFor, sseFrame, type RaisedAlert } from "./events.js";
@@ -45,7 +47,7 @@ app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: "Not found
 app.get("/health", async (_req, reply) => {
   try {
     const capabilities = await fhir.capabilities();
-    return { status: "ok", fhir: capabilities.fhirVersion, advisory: advisoryEnabled() };
+    return { status: "ok", fhir: capabilities.fhirVersion, advisory: advisoryEnabled(), agent: agentEnabled() };
   } catch {
     return reply.code(503).send({ status: "degraded", fhir: "unreachable" });
   }
@@ -391,6 +393,47 @@ app.get<{ Querystring: { days?: number } }>(
   },
   async (req) => loadTrends(clampDays(req.query.days ?? TREND_DAYS.default)),
 );
+
+// Questions about the data, answered by a model that may only call the read-only FHIR tools in
+// agent-tools.ts. The answer comes back with every tool call and the public FHIR query behind it.
+const agentGuard = new AgentGuard();
+// Behind Caddy the client is the first X-Forwarded-For entry; the socket address is the proxy.
+const clientOf = (req: { headers: Record<string, unknown>; ip: string }) =>
+  String(req.headers["x-forwarded-for"] ?? "").split(",")[0]?.trim() || req.ip;
+
+app.post<{ Body: { question: string } }>(
+  "/agent/ask",
+  {
+    schema: {
+      body: {
+        type: "object",
+        required: ["question"],
+        additionalProperties: false,
+        properties: { question: { type: "string", minLength: 3, maxLength: 500 } },
+      },
+    },
+  },
+  async (req, reply) => {
+    const question = req.body.question.trim();
+    const cached = agentGuard.cached(question);
+    if (cached) return cached;
+    if (!agentEnabled()) return reply.code(503).send({ error: "The agent model is not configured on this server" });
+    const refusal = agentGuard.admit(clientOf(req));
+    if (refusal) return reply.code(429).send({ error: refusal });
+    try {
+      const answer = await askAgent(question);
+      agentGuard.remember(answer);
+      req.log.info({ question, tools: answer.steps.map((s) => s.tool) }, "agent answered");
+      return answer;
+    } catch (err) {
+      if (err instanceof AgentError) return reply.code(err.status).send({ error: err.message });
+      throw err;
+    }
+  },
+);
+
+// The same read-only tools as a remote MCP server (Streamable HTTP, stateless).
+registerMcp(app);
 
 await app.listen({ host: "0.0.0.0", port: config.port });
 startPush(app.log);

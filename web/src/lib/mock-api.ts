@@ -6,6 +6,8 @@ import { ACK_ACTIONS } from "./format";
 import type {
   Acknowledgement,
   Advisory,
+  AgentAnswer,
+  AgentStep,
   AlertSummary,
   Api,
   ClinicSummary,
@@ -450,6 +452,7 @@ export const mockApi: Api = {
       alerts = alerts.map((a) => (a.id === id ? { ...a, advisory } : a));
       return advisory;
     }, 700),
+  askAgent: (question) => run(() => mockAgent(question), 1400),
 };
 
 function journey(id: string): ReportJourney {
@@ -479,6 +482,90 @@ function journey(id: string): ReportJourney {
 
 function noPush(): never {
   throw new ApiError("Web push is not available in demo mode", 503);
+}
+
+// Stand-in for the agent: picks tools by keyword and answers from the mock's own data, so the page
+// and its tests run without a model. The shape matches POST /agent/ask.
+function mockAgent(question: string): AgentAnswer {
+  const q = question.toLowerCase();
+  const steps: AgentStep[] = [];
+  const url = (type: string, params: Record<string, string> = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return `${FHIR_URL}/${type}${query ? `?${query}` : ""}`;
+  };
+  const active = activeAlerts().sort(newestFirst);
+  const alertStep = (): AgentStep => ({
+    tool: "list_alerts",
+    args: {},
+    summary: `Found ${active.length} active alert${active.length === 1 ? "" : "s"}`,
+    fhirUrls: [url("DetectedIssue", { code: "https://oneaquahealth.duckdns.org/fhir/CodeSystem/water-health-risk|" })],
+  });
+  let answer: string;
+
+  if (/warm|oxygen|trend|drift|conductiv/.test(q)) {
+    const t = trends(28);
+    steps.push({
+      tool: "get_trends",
+      args: { days: 28 },
+      summary: `Read 28 days of trends: ${t.totals.reports} reports across ${t.totals.sites} sites`,
+      fhirUrls: [url("Observation", { _profile: "http://hl7.eu/fhir/ig/oah/StructureDefinition/observation-indicators-oah" })],
+    });
+    const moving = t.sites.flatMap((site) =>
+      site.indicators
+        .filter((i) => (i.indicator === "waterTemperature" && i.direction === "rising") || (i.indicator === "dissolvedO2" && i.direction === "falling"))
+        .map((i) => `- ${site.name}: ${i.display.charAt(0).toLowerCase()}${i.display.slice(1)} ${i.direction}, ${i.earlier} to ${i.recent} ${i.unitLabel ?? ""}`.trim()),
+    );
+    answer = moving.length
+      ? `Over the recent reports:\n${moving.join("\n")}\nThe other sites are steady.`
+      : "No site is warming or losing oxygen in the recent reports; the readings are steady.";
+  } else if (/clinic|answer|repl|warned|notif/.test(q)) {
+    steps.push(
+      {
+        tool: "list_clinics",
+        args: {},
+        summary: `Read ${CLINICS.length} clinics and the sites they serve`,
+        fhirUrls: [url("HealthcareService", { _include: "HealthcareService:organization" })],
+      },
+      alertStep(),
+    );
+    const notified = active.filter((a) => a.watchFor);
+    answer = notified.length
+      ? notified
+          .map((a) => {
+            const clinics = CLINICS.filter((c) => c.siteIds.includes(a.siteId)).map((c) => c.name);
+            const replies = a.acknowledgements ?? [];
+            const status = replies.length ? `answered (${replies.map((r) => r.actionLabel.toLowerCase()).join(", ")})` : "no reply yet";
+            return `- ${a.title} at ${a.siteName}: sent to ${clinics.join(" and ")}; ${status}.`;
+          })
+          .join("\n")
+      : "No clinic has an active alert right now.";
+  } else if (/almyros|report|reading|citizen/.test(q)) {
+    const readings = (observationsBySite.get("Loc-Almyros") ?? []).slice(0, 6);
+    steps.push({
+      tool: "site_observations",
+      args: { siteId: "Loc-Almyros", days: 7 },
+      summary: `Read ${readings.length} readings at Loc-Almyros over 7 days`,
+      fhirUrls: [url("Observation", { subject: "Location/Loc-Almyros", _sort: "-date" })],
+    });
+    const line = (o: ObservationSummary) => {
+      const indicator = INDICATORS.find((i) => i.id === o.indicator);
+      const unit = typeof o.value === "number" && indicator?.unitLabel ? ` ${indicator.unitLabel}` : "";
+      return `- ${indicator?.display ?? o.indicator}: ${o.value}${unit}`;
+    };
+    answer = `Latest citizen readings at Almyros monitoring reach:\n${readings.map(line).join("\n")}`;
+  } else {
+    steps.push(
+      { tool: "list_sites", args: {}, summary: `Read ${SITES.length} stream sites and their latest readings`, fhirUrls: [url("Location")] },
+      alertStep(),
+    );
+    answer = active.length
+      ? `${active.length} ${active.length === 1 ? "site has" : "sites have"} an active alert:\n${active
+          .map((a) => `- **${a.title}** at ${a.siteName} (${a.level}): ${a.reasons[0] ?? ""}`)
+          .join("\n")}`
+      : "No stream site has an active alert right now.";
+  }
+
+  return { question, answer, steps, model: "demo-model (offline mock)", answeredAt: new Date().toISOString() };
 }
 
 // Stand-in for the language model: the same shape of text, assembled from the alert's own reasons

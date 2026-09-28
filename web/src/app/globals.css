@@ -155,3 +155,13 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* The sweep in the agent's loading bar. */
+@keyframes agent-scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}

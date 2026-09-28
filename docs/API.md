@@ -168,7 +168,7 @@ interface ReportJourney {
 
 | Method | Path | Response |
 |---|---|---|
-| GET | `/health` | `{ status: "ok", fhir: "4.0.1", advisory: boolean }` (`advisory` says whether a model key is configured) or 503 |
+| GET | `/health` | `{ status: "ok", fhir: "4.0.1", advisory: boolean, agent: boolean }` (`advisory` and `agent` say whether a model key is configured) or 503 |
 | GET | `/indicators` | `Indicator[]` |
 | GET | `/sites` | `SiteSummary[]` |
 | GET | `/sites/:id` | `SiteDetail` or 404 |
@@ -186,6 +186,8 @@ interface ReportJourney {
 | POST | `/push/subscriptions` | Body `{ clinicId, subscription: { endpoint, keys: { p256dh, auth } } }` (`PushSubscription.toJSON()`). `201`; one clinic per device (a new call for the same endpoint replaces the clinic). 400 unless the endpoint is `https` on a browser push service (FCM, Mozilla, Apple, Windows), 404 unknown clinic, 503 not configured. Every alert newly sent to that clinic is then pushed as `{ title, body, url, tag }` |
 | POST | `/push/unsubscribe` | Body `{ endpoint }`; 204 |
 | POST | `/push/test` | Body `{ endpoint }` of a subscribed device; sends it a test notification. `{ sent: true }`, 404 not subscribed, 502 refused by the push service |
+| POST | `/agent/ask` | `200 AgentAnswer` — body `{ question: string }` (3–500 characters). An AI agent answers from the FHIR data using read-only tools (below). The same question within 10 minutes gets the stored answer. 503 if no model key is configured, 429 over 5 questions a minute or 300 a day from one client, 502 if the model failed or is busy, 504 if it took longer than 55 s |
+| POST | `/mcp` | Model Context Protocol server (Streamable HTTP, stateless, JSON responses) exposing the same read-only tools. Clients must send `Accept: application/json, text/event-stream`. `GET` and `DELETE` answer 405 |
 | GET | `/photos/:id` | The photo bytes (`image/jpeg`, `image/png` or `image/webp`) or 404 |
 | PUT | `/hooks/observation/Observation/:id` | Internal: FHIR rest-hook target for the Observation Subscription (HAPI delivers each match as a PUT of the Observation); answers 204. Not reachable through the public proxy |
 
@@ -218,5 +220,37 @@ kept as separate resources rather than on the `DetectedIssue`, which a later eva
 ```
 
 A photo is stored as a FHIR `Media` resource (content in a `Binary`), and the Observation references it through `derivedFrom`. Citizens are asked not to photograph people.
+
+### FHIR agent and MCP tools
+
+```ts
+interface AgentStep {
+  tool: string;              // one of the tools below
+  args: Record<string, unknown>;
+  summary: string;           // one line, e.g. "Found 1 active alert"
+  fhirUrls: string[];        // the public /fhir searches the tool ran
+  error?: boolean;           // the tool refused the call (bad arguments, blocked search)
+}
+
+interface AgentAnswer {
+  question: string;
+  answer: string;            // plain text; may use "- " bullets and **bold**
+  steps: AgentStep[];        // in the order the model called them
+  model: string;
+  answeredAt: string;        // ISO 8601
+}
+```
+
+| Tool | Arguments | Returns |
+|---|---|---|
+| `list_sites` | none | Every stream site with its latest reading per indicator and its active alerts |
+| `list_clinics` | none | Every clinic and the sites it serves |
+| `list_alerts` | `siteId?`, `clinicId?` | Active alerts (up to 20) with reasons, what to watch for and clinic replies |
+| `get_trends` | `days?` (7–90) | The `Trends` rollup |
+| `site_observations` | `siteId`, `indicator?`, `days?` (1–90, default 14) | Citizen readings at one site, newest first |
+| `search_fhir` | `resourceType`, `params?` | A guarded FHIR search: only Location, Observation, DetectedIssue, Communication, Organization, HealthcareService, Group and Provenance, only listed search parameters, `_count` at most 20, results trimmed |
+
+The tools only read. The agent is told to answer from tool results only and to give no clinical
+advice. It gets at most 6 rounds of tool calls (4 calls a round) before it must answer.
 
 Errors use `{ error: string, details?: unknown }` with 400 (validation), 404 (unknown site or indicator), 502 (FHIR server rejected the resource).

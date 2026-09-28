@@ -165,6 +165,26 @@ export interface Trends {
 export interface Health {
   status: "ok";
   fhir: string;
+  advisory?: boolean;
+  agent?: boolean;
+}
+
+// POST /agent/ask: an answer from the model plus every read-only tool call it made to get there.
+export interface AgentStep {
+  tool: string;
+  args: Record<string, unknown>;
+  summary: string;
+  fhirUrls: string[];
+  // Set when the tool refused the call (e.g. a resource type outside the allow-list).
+  error?: boolean;
+}
+
+export interface AgentAnswer {
+  question: string;
+  answer: string;
+  steps: AgentStep[];
+  model: string;
+  answeredAt: string;
 }
 
 export interface ReportInput {
@@ -245,4 +265,5 @@ export interface Api {
   subscribePush(clinicId: string, subscription: PushSubscriptionJson): Promise<void>;
   unsubscribePush(endpoint: string): Promise<void>;
   testPush(endpoint: string): Promise<void>;
+  askAgent(question: string): Promise<AgentAnswer>;
 }
