@@ -14,7 +14,7 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 - **Demo video (Sep 28, recorded again after the UI pass):** made by the pipeline, 3:21, showing the new UI, the advisory drafted by GLM 4.7 Flash on Bedrock and Bedrock in the wiring diagram, at `~/Code/Hackathons/demo-video-pipeline/output/stream-to-clinic/final_demo.mp4`, with the YouTube text in `youtube.txt` beside it. [DEMO_SCRIPT.md](DEMO_SCRIPT.md) describes it and how to record it again. The second take used real Open-Meteo weather (4.9 mm in 7 days, dry enough for the bloom rule) with no override, and the demo bloom alert at Almyros is closed again.
 - **LLM switch (Sep 28):** Gemini is gone; the agent and the advisory call Amazon Bedrock. GLM 4.7 Flash was the cheapest of eleven non-Anthropic models to answer all test questions correctly against live data; Ministral 3 14B is the fallback.
 - **UI pass (Sep 28):** the Live loop page was rebuilt: real phone frames only on wide screens, stacked plain cards on phones (citizen, then the timer and steps, then the clinic), plain-word steps with FHIR detail behind "i" icons, and a short report form. All pages were trimmed, with long text moved behind info icons, and every page is now translated into Greek and Italian, not only the menus. One font (Manrope, with Greek) for all languages. The phone header is now the name plus a menu, and the language picker is a menu.
-- **Next:** upload the video to YouTube and add the link to SUBMISSION.md and Devpost, then submit on Devpost before Oct 4, 9:00 PM PDT. The second team member has been added on Devpost.
+- **Submitted (Sep 28):** the project is submitted on Devpost, with the form text from [DEVPOST_FORM.md](DEVPOST_FORM.md) and the 3:2 gallery images in `docs/gallery/`. Keep the repo public and the live site, API and FHIR server running until judging ends. Edits to the Devpost page are allowed until Oct 4, 9:00 PM PDT.
 - **Stage 9 (Sep 28):** all five features and the review leftovers are done: live clinic alerts (SSE and web push), the report journey page, our FSH profiles, SMART on FHIR launch, and the FHIR agent with its MCP server.
 - **Also done:** site FHIR `Bundle` export, a `/standards` page for judges, a UI pass on the map, themes and colours, `Provenance` lineage on every citizen report, clinic acknowledgements that close the One Health loop, Greek/Italian on every page, the catchment trend view, a model-drafted clinic notice with its own `Provenance`, and Playwright journey tests in CI (Stage 7).
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
@@ -163,8 +163,8 @@ The deadline moved to Oct 4, so five more features go in before the video. Each 
 - [x] Track alignment statement (in [SUBMISSION.md](SUBMISSION.md))
 - [x] Project description: problem, solution, target users, expected impact on ecosystem and human health (in [SUBMISSION.md](SUBMISSION.md))
 - [x] Demo video, 3–5 minutes (3:21, made by the pipeline; see [DEMO_SCRIPT.md](DEMO_SCRIPT.md)). Upload to YouTube is left to the user.
-- [ ] Working prototype link and public FHIR endpoint in the submission
-- [ ] Submit on Devpost by Oct 4 evening IST (user)
+- [x] Working prototype link and public FHIR endpoint in the submission
+- [x] Submit on Devpost by Oct 4 evening IST (submitted Sep 28)
 
 ## 6. Demo flow (3–5 minute video)
 
