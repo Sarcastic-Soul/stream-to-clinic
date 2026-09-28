@@ -15,7 +15,7 @@ const bloom: RiskDecision = {
     { text: "Dry week: 1.2 mm of rain in the last 7 days, at most 5 mm (Open-Meteo).", met: true, evidence: [] },
   ],
 };
-const site = { id: "Loc-Almyros", name: "Almyros monitoring reach", waterBody: "Almyros Stream", region: "Crete, Greece", lat: 35.3, lon: 25 };
+const site = { id: "Loc-Almyros", name: "Almyros monitoring reach", waterBody: "Almyros Stream", region: "Crete, Greece", lat: 35.3, lon: 25, timeZone: "Europe/Athens" };
 const weather = { rain24h: 0, rain7d: 1.2, source: "Open-Meteo" };
 
 test("narrative walks through reports, weather, each check, the level and who was notified", () => {

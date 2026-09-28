@@ -80,3 +80,11 @@ test("highestLevel picks the most severe level", () => {
   assert.equal(highestLevel([]), "none");
   assert.equal(highestLevel(["low", "high", "medium"]), "high");
 });
+
+test("report dates in reasons follow the site's own calendar", () => {
+  // 22:30 UTC on 18 Sep is already 19 Sep in Crete.
+  const late = { ...obs("filamentousAlgae", "present"), observedAt: "2026-09-18T22:30:00.000Z" };
+  const temp = obs("waterTemperature", 27);
+  assert.match(decision("algal-bloom", [late, temp], dry, now).conditions[0]!.text, /on 18 Sep\./);
+  assert.match(decision("algal-bloom", [late, temp], dry, now, "Europe/Athens").conditions[0]!.text, /on 19 Sep\./);
+});

@@ -152,7 +152,7 @@ The deadline moved to Oct 4, so five more features go in before the video. Each 
 - [x] **Stream-to-Clinic FHIR profiles (FSH).** Our own profiles for the resources the OAH IG does not cover (the alert `DetectedIssue`, clinic `Communication`, clinic reply, advisory `Communication`, report `Provenance`), with our CodeSystems and ValueSets, written in FSH and built with SUSHI on top of the OAH IG. The API sets `meta.profile`, CI validates against them, and the StructureDefinitions are loaded into the FHIR server so they resolve.
 - [ ] **SMART on FHIR launch for the clinic view.** A small SMART App Launch 2.0 authorization server in the API (`/.well-known/smart-configuration`, `/smart/authorize` with a demo clinician sign-in, `/smart/token` with PKCE), seeded `Practitioner` and `PractitionerRole` per clinic, and the clinic view as a SMART app using `fhirclient` 2.6 (standalone and EHR launch).
 - [x] **FHIR agent.** `POST /agent/ask`: Gemini with function calling over six read-only tools (five app-level reads and one guarded FHIR search) answers questions about the data and returns every FHIR query it ran. The `/ask` page shows the answer and the queries as clickable links. The same tools are served as a remote MCP server at `/mcp` (Streamable HTTP, stateless, no key needed).
-- [ ] Review leftovers: alert reason dates in UTC; 200-item cap on alert and communication lists.
+- [x] Review leftovers: alert reason dates now use the site's time zone (from its country); alert, communication and advisory lists follow FHIR paging instead of stopping at one page.
 - [ ] Demo video recorded with the pipeline, after all of the above is live.
 
 ### Stage 8: Submission (Sep 28 – Oct 4)

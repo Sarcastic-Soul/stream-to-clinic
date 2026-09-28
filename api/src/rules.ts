@@ -64,10 +64,16 @@ export interface RiskDecision {
 const HOUR = 3_600_000;
 const T = THRESHOLDS;
 
+// "28 Sep", on the calendar of the site's time zone, so a report made late in the evening is not
+// dated the next day.
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const day = (iso: string) => {
-  const date = new Date(iso);
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
+const dayFormat = (timeZone: string) => {
+  const format = new Intl.DateTimeFormat("en", { day: "numeric", month: "numeric", timeZone });
+  return (iso: string) => {
+    const parts = format.formatToParts(new Date(iso));
+    const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+    return `${part("day")} ${MONTHS[part("month") - 1]}`;
+  };
 };
 export const mm = (value: number) => `${value.toFixed(1)} mm`;
 
@@ -75,7 +81,9 @@ export function evaluateRisks(
   observations: ObservationSummary[],
   weather: Weather | undefined,
   now = new Date(),
+  timeZone = "UTC",
 ): RiskDecision[] {
+  const day = dayFormat(timeZone);
   // Most recent report of an indicator within the look-back window (future timestamps ignored).
   const latest = (indicator: CitizenIndicator, hours = T.windowDays * 24) =>
     observations

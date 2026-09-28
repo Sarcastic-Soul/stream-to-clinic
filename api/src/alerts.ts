@@ -127,10 +127,10 @@ export interface IssueCommunications {
 // Maps Communications back to the DetectedIssue each one is about. A Communication with
 // inResponseTo is a clinic answering; anything else is us notifying a clinic.
 export async function loadCommunications() {
-  const { matches } = await fhir.search("Communication", {
+  const matches = await fhir.searchAll("Communication", {
     category: `${ALERT_CATEGORY.system}|${ALERT_CATEGORY.code}`,
     _sort: "-_lastUpdated",
-    _count: 400,
+    _count: 200,
   });
   const byIssue = new Map<string, IssueCommunications>();
   const forIssue = (id: string) => {
@@ -204,8 +204,8 @@ export function toAlertSummary(issue: fhir4.DetectedIssue, comms: Communications
 
 // Active alerts, newest first, optionally limited to one site or to alerts sent to one clinic.
 export async function listAlerts(filter: { siteId?: string; clinicId?: string } = {}): Promise<AlertSummary[]> {
-  const [{ matches }, comms] = await Promise.all([
-    fhir.search("DetectedIssue", {
+  const [matches, comms] = await Promise.all([
+    fhir.searchAll("DetectedIssue", {
       code: `${RISK_SYSTEM}|`,
       _sort: "-_lastUpdated",
       _count: 200,
@@ -341,7 +341,7 @@ async function evaluate(site: Site, log: FastifyBaseLogger): Promise<AlertSummar
   const raised: string[] = [];
   // Newly raised issues and the clinics told about them, announced once the alerts are read back.
   const fresh = new Map<string, string[]>();
-  for (const decision of evaluateRisks(observations, weather, now)) {
+  for (const decision of evaluateRisks(observations, weather, now, site.timeZone)) {
     log.info({ siteId: site.id, ...decision }, "risk decision");
     const active = existing.matches.find(
       (i) => isActive(i) && i.identifier?.some((id) => id.value === alertKey(site.id, decision.risk)),

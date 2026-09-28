@@ -38,6 +38,21 @@ async function search<K extends fhir4.FhirResource["resourceType"]>(type: K, par
   };
 }
 
+// Like search, but follows the Bundle's `next` links until `max` resources have been read. HAPI
+// writes those links with its public address, so only their query is kept and sent to our base URL.
+async function searchAll<K extends fhir4.FhirResource["resourceType"]>(type: K, params: SearchParams = {}, max = 2000) {
+  const query = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
+  let path: string | undefined = `/${type}?${query}`;
+  const matches: ResourceOf<K>[] = [];
+  while (path && matches.length < max) {
+    const bundle: fhir4.Bundle = await request<fhir4.Bundle>(path, { headers: { "Cache-Control": "no-cache" } });
+    for (const e of bundle.entry ?? []) if (e.resource?.resourceType === type) matches.push(e.resource as ResourceOf<K>);
+    const next = bundle.link?.find((l) => l.relation === "next")?.url;
+    path = next ? `?${new URL(next).searchParams}` : undefined;
+  }
+  return matches.slice(0, max);
+}
+
 export const fhir = {
   capabilities: () => request<fhir4.CapabilityStatement>("/metadata?_summary=true"),
   create: <T extends fhir4.Resource>(resource: T) =>
@@ -53,6 +68,7 @@ export const fhir = {
     }
   },
   search,
+  searchAll,
   // Every stored version of one resource, newest first.
   history: async <K extends fhir4.FhirResource["resourceType"]>(type: K, id: string, count = 50) => {
     const bundle = await request<fhir4.Bundle>(`/${type}/${encodeURIComponent(id)}/_history?_count=${count}`);

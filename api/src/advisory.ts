@@ -142,7 +142,7 @@ export async function draftAdvisory(alert: AlertSummary): Promise<string> {
 }
 
 export async function loadAdvisory(alertId: string): Promise<Advisory | undefined> {
-  const { matches } = await fhir.search("Communication", {
+  const matches = await fhir.searchAll("Communication", {
     category: `${ADVISORY_CATEGORY.system}|${ADVISORY_CATEGORY.code}`,
     _sort: "-_lastUpdated",
     _count: 200,

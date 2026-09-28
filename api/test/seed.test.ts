@@ -36,3 +36,10 @@ test("sites are LocationOah with position, and history covers the last four week
     assert.ok(age > 0 && age < 28 * 86_400_000);
   }
 });
+
+test("sites take the time zone of their country, UTC otherwise", async () => {
+  const { timeZoneOf } = await import("../src/store.js");
+  assert.equal(timeZoneOf("GR"), "Europe/Athens");
+  assert.equal(timeZoneOf("it"), "Europe/Rome");
+  assert.equal(timeZoneOf(undefined), "UTC");
+});

@@ -10,7 +10,27 @@ export interface Site {
   region: string;
   lat: number;
   lon: number;
+  /** IANA time zone, for dates written into alert text. */
+  timeZone: string;
 }
+
+// Time zones of the countries the OAH pilot sites are in; anything else falls back to UTC.
+const TIME_ZONES: Record<string, string> = {
+  GR: "Europe/Athens",
+  IT: "Europe/Rome",
+  ES: "Europe/Madrid",
+  PT: "Europe/Lisbon",
+  FR: "Europe/Paris",
+  DE: "Europe/Berlin",
+  NL: "Europe/Amsterdam",
+  BE: "Europe/Brussels",
+  SE: "Europe/Stockholm",
+  FI: "Europe/Helsinki",
+  PL: "Europe/Warsaw",
+  RO: "Europe/Bucharest",
+  CY: "Asia/Nicosia",
+};
+export const timeZoneOf = (country: string | undefined) => TIME_ZONES[country?.toUpperCase() ?? ""] ?? "UTC";
 
 export interface ClinicSummary {
   id: string;
@@ -28,6 +48,7 @@ function toSite(location: fhir4.Location): Site | undefined {
     region: location.address?.text ?? "",
     lat: location.position.latitude,
     lon: location.position.longitude,
+    timeZone: timeZoneOf(location.address?.country),
   };
 }
 
