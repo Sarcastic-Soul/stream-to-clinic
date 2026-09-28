@@ -23,10 +23,10 @@ Citizen stream observations become OneAquaHealth FHIR resources, and risky patte
 
 The track's problem is fragmented data and a lack of standards between environmental and health systems. Stream-to-Clinic is an integration framework built on the OneAquaHealth FHIR Implementation Guide itself:
 
-- **FHIR models:** citizen reports are stored as `ObservationIndicatorsOah`, stream sites as `LocationOah`, district cohorts as `GroupOah` and baseline disease prevalence as `ObservationHealthMeasureOah`, using the OAH code system and UCUM units. Alerts are standard FHIR R4 `DetectedIssue` and `Communication` resources that any clinical system can read.
+- **FHIR models:** citizen reports are stored as `ObservationIndicatorsOah`, stream sites as `LocationOah`, district cohorts as `GroupOah` and baseline disease prevalence as `ObservationHealthMeasureOah`, using the OAH code system and UCUM units. Where the OAH IG stops, we wrote our own profiles in FSH on top of it: the alert (`DetectedIssue`), the clinic notice and reply (`Communication`), the model-drafted advisory, and the `Provenance` for each report. They are built with SUSHI, validated in CI and served by the FHIR server, so their canonical URLs resolve.
 - **Conformance:** every change is validated in CI against the OAH IG, built from source with SUSHI and checked with the official HL7 validator. Resources come from the application's real code, not hand-written samples, and CI fails on any profile error.
-- **Agent:** an explainable risk engine reads new observations and live weather, decides whether a health risk exists, and writes down each step of its reasoning inside the FHIR alert.
-- **Integration:** a public FHIR server and a FHIR `Subscription` mean other OAH systems can write observations and have them assessed through standard FHIR alone. Any site's data downloads as one FHIR `Bundle`, and a Standards page in the app links to live example resources.
+- **Agents:** an explainable risk engine reads new observations and live weather, decides whether a health risk exists, and writes down each step of its reasoning inside the FHIR alert. A separate AI agent answers questions about the data ("which stream is losing oxygen?") by querying the FHIR server itself, read-only, and shows every FHIR search it ran. The same tools are a public MCP server, so any assistant can use them.
+- **Integration:** a public FHIR server and a FHIR `Subscription` mean other OAH systems can write observations and have them assessed through standard FHIR alone. The clinic view is a SMART on FHIR app (SMART App Launch 2.0, EHR launch and standalone launch, PKCE), so it can open inside a clinic's own record system; a signed-in clinician's reply carries a `Provenance` naming them. Any site's data downloads as one FHIR `Bundle`, and a Standards page in the app links to live example resources.
 
 It also draws on Track 6 (early-warning alerts) and Track 2 (map dashboard) to close the One Health loop.
 
@@ -42,7 +42,9 @@ Stream-to-Clinic connects the two with open standards:
 2. **Standard from the first byte.** Each report becomes an `ObservationIndicatorsOah` resource on a public HAPI FHIR R4 server, conformant to the OneAquaHealth IG.
 3. **Explainable risk engine.** Rules combine recent reports with live rainfall from Open-Meteo: algal bloom (algae, warm water, dry week), sewage overflow (heavy rain plus foam), mosquito breeding (larvae, warm water, recent rain) and low oxygen. Every alert lists the reasons in plain language and a step-by-step account of the decision, and links to the evidence observations.
 4. **Alerts clinics can consume.** A triggered rule creates a FHIR `DetectedIssue` and sends a `Communication` to each clinic serving that stream. Environmental-only risks, like low oxygen, stay on the map without alerting clinics.
-5. **One screen for clinicians.** The clinic view lists alerts for the clinic's area, newest first, with what to watch for (for example, gastrointestinal cases after heavy rain and foam upstream) and why.
+5. **One screen for clinicians, live.** The clinic view lists alerts for the clinic's area, newest first, with what to watch for (for example, gastrointestinal cases after heavy rain and foam upstream) and why. A new alert appears on an open clinic page within a second (Server-Sent Events) and on an installed clinic app by web push.
+6. **The loop closes.** Clinics reply in one click (staff briefed, patients advised, authority notified); the reply is a FHIR `Communication` linked to the alert. Clinicians can sign in with SMART on FHIR so the reply is signed.
+7. **Citizens see what their report did.** Each report has its own page: stored, checked, which alert it helped raise, which clinics were told and what they did, all read back from FHIR.
 
 ## Target users
 
@@ -63,6 +65,7 @@ Stream-to-Clinic connects the two with open standards:
 
 | Measured | Value |
 |---|---|
+| Report to clinic screen | About 1 s on the Live loop page, from pressing Send on the citizen phone to the alert banner on the clinic phone (Server-Sent Events, no polling) |
 | Report to answer | ~0.8–1.1 s from pressing Send to the report being stored, every rule for that site re-evaluated and the result returned (three live calls against the deployed API) |
 | Alert reaches the clinic | In the same request: the `DetectedIssue` and one `Communication` per serving clinic are written in a single FHIR transaction, so there is no batch job and no polling delay |
 | Time to file a report | Under 30 seconds on a phone, and it works with no signal — reports queue on the device and sync later |
@@ -76,10 +79,12 @@ Reach, if the demo clinics were real: the two Cretan sites sit in the Heraklion 
 ## How we built it
 
 - **Frontend:** Next.js 16, React 19, Tailwind CSS 4, shadcn/ui, MapLibre GL with OpenFreeMap tiles, Recharts; installable PWA with an offline report queue. English, Greek and Italian for the citizen-facing screens, matching the countries of the pilot sites; light, dark or system theme; a colourful basemap with place names in one language and nearby sites clustered with a count; axe reports 0 accessibility violations on every page in both themes.
-- **AI, kept in its place:** a language model rewrites an alert as a short notice for clinic staff, from the rule engine's own reasons and nothing else. It never decides or changes a risk level. The draft is stored as a FHIR `Communication` sent by a `Device`, with a `Provenance` naming that device as the author, so machine-written text is distinguishable from a clinician's wherever it is read.
+- **AI, kept in its place:** an agent (Gemini function calling over six read-only tools) answers questions about the data and lists every FHIR search behind its answer; the same tools are a remote MCP server (`@modelcontextprotocol/sdk`). A language model also rewrites an alert as a short notice for clinic staff, from the rule engine's own reasons and nothing else. It never decides or changes a risk level. The draft is stored as a FHIR `Communication` sent by a `Device`, with a `Provenance` naming that device as the author, so machine-written text is distinguishable from a clinician's wherever it is read.
 - **API:** Fastify 5 on Node.js 24 LTS, TypeScript. Maps reports to OAH profiles, writes a `Provenance` for each one, runs the risk engine, writes alerts, and takes clinic replies back as `Communication` resources with `inResponseTo`, so the loop closes in standard resources.
 - **FHIR server:** HAPI FHIR JPA Server 8.12 (R4) on PostgreSQL 18, public read-only behind Caddy with automatic HTTPS.
-- **Standards tooling:** SUSHI builds the OAH IG from source at a pinned commit; HL7 `validator_cli` 6.10 validates the application's resources in GitHub Actions.
+- **Standards tooling:** SUSHI builds the OAH IG from source at a pinned commit, then our own FSH profiles on top of it; HL7 `validator_cli` 6.10 validates the application's resources against both in GitHub Actions.
+- **SMART on FHIR:** a small SMART App Launch 2.0 authorization server in the API (discovery, authorize, token with PKCE, RS256 JWTs, a demo EHR), and the clinic view as a SMART app.
+- **Live delivery:** Server-Sent Events to open clinic pages and web push (VAPID) to installed clinic apps.
 - **Weather:** Open-Meteo (free, no key, CC BY 4.0).
 - **Delivery:** GitHub Actions deploys the backend to a small cloud host using OIDC and SSM (no stored keys, no open SSH port); Vercel deploys the frontend.
 
@@ -93,7 +98,8 @@ Reach, if the demo clinics were real: the two Cretan sites sit in the Heraklion 
 
 - An end-to-end One Health loop from citizen report to clinic alert, built entirely on FHIR R4 and the OAH IG.
 - Profile validation in CI on resources generated by the real code: 0 errors.
-- A public FHIR endpoint judges can query directly.
+- A public FHIR endpoint judges can query directly, and a public MCP server any AI assistant can use.
+- A report travels from a citizen's phone to a clinic's screen in about a second, and the citizen can see which clinics it reached.
 
 ## What we learned
 
@@ -103,11 +109,11 @@ Reach, if the demo clinics were real: the two Cretan sites sit in the Heraklion 
 ## What's next
 
 - Calibrate thresholds with OAH ecologists and add indicators from the OAH field sampling protocols.
-- SMART on FHIR launch so the clinician view opens inside existing clinical systems.
+- Register the clinic app with a real EHR sandbox, and use the clinic's own sign-in instead of our demo authorization server.
 - Connect to the OneAquaHealth citizen-science app as an additional observation source through the FHIR Subscription.
 - Aggregate, privacy-preserving health signals (syndromic counts) to close the loop in the other direction.
 
 ## Notes for judges
 
 - All sites come from the OneAquaHealth IG examples (Almyros and Giofyros in Crete, Benevento in Italy). Clinics and health figures are synthetic demo data. Risk rules are demonstration heuristics, not clinical guidance.
-- Try it: open the map, pick a site, submit a report, then follow the link to the created FHIR resource. The Standards page (https://stream-to-clinic.vercel.app/standards) maps every concept to its FHIR resource and OAH profile, with live examples.
+- Try it: open the map, pick a site, submit a report, then follow "What happened to my report". Open **Live loop** to watch a report reach a clinic's screen. On **Clinic**, try "Open from the demo EHR" (SMART EHR launch). On **Ask**, ask a question and open the FHIR searches behind the answer. The Standards page (https://stream-to-clinic.vercel.app/standards) maps every concept to its FHIR resource and OAH profile, with live examples.

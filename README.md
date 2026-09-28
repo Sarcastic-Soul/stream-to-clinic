@@ -34,7 +34,7 @@ Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-h
 | 2. Assess | A rule engine combines recent reports with Open-Meteo rainfall: algal bloom, sewage overflow, mosquito breeding, low oxygen | — |
 | 3. Explain | Every alert carries plain-language reasons and a numbered account of how the decision was reached | `DetectedIssue.evidence`, `.detail` |
 | 4. Notify | Clinics serving that stream get the alert; environment-only risks stay on the map | `Communication` |
-| 5. Act | Clinicians see one screen: what to watch for, and why | — |
+| 5. Act | Clinicians see one screen: what to watch for, and why; they reply in one click, signed in with SMART on FHIR | `Communication` (reply) + `Provenance` |
 | 6. Integrate | Observations written to the FHIR server by *any* system run the same assessment | `Subscription` (rest-hook) |
 
 ## Screenshots
@@ -58,8 +58,11 @@ Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-h
 | 🌍 **Speaks the local language** | English, Greek and Italian on the citizen screens — the languages of the pilot sites, not just the developers' |
 | 📈 **From one report to a pattern** | A four-week catchment view: which stream is warming, losing oxygen or rising in conductivity, per site and per region, next to the district's disease baseline |
 | 🔁 **Closed loop** | Clinics answer an alert in one click; the reply is a FHIR `Communication` linked to the original, so the environmental side sees which warnings led to action |
-| ✍️ **AI that only writes, never decides** | A model rewrites an alert as a notice for the clinic desk, from the engine's own reasons; the draft is a `Communication` sent by a `Device` with a `Provenance` naming it, so machine-written text stays marked as such |
 | ✍️ **AI that writes, never decides** | A model rewrites an alert as a notice for the clinic desk, from the engine's own reasons only; the draft is a `Communication` sent by a `Device` with a `Provenance` naming it, so machine-written text stays marked as such |
+| ⚡ **Live to the clinic** | A new alert reaches an open clinic page within a second over Server-Sent Events, and an installed clinic app by web push. The **Live loop** page shows one report travelling from a citizen's phone to a clinic's phone |
+| 🧭 **"What happened to my report?"** | Each reporter can follow their report: stored, checked, which alert it helped raise, which clinics were told, and what they did, read back from `Provenance`, `DetectedIssue` and `Communication` |
+| 🔐 **SMART on FHIR** | The clinic view is a SMART App Launch 2.0 app, launched from a (demo) EHR or on its own, with PKCE. A signed-in clinician's reply carries a `Provenance` naming them |
+| 📐 **Our own profiles** | The resources the OAH IG does not cover (alert, clinic notice, reply, advisory, report lineage) have their own FSH profiles, built with SUSHI on top of the OAH IG, checked in CI and served by the FHIR server |
 | 🤖 **Ask the data** | An AI agent answers questions like "which stream is losing oxygen?" by querying the FHIR server itself, read-only, and shows every query it ran. The same tools are a public MCP server |
 | 🧾 **Traceable** | Every citizen report carries a `Provenance`: who reported it, which app assembled it, when it was recorded |
 | 🗺️ **Readable map** | Colourful basemap, place names in one language, quieter country labels, nearby sites clustered with a count |
@@ -111,8 +114,12 @@ claude mcp add --transport http stream-to-clinic https://oneaquahealth.duckdns.o
 | District cohort | `Group` | `GroupOah` |
 | Baseline health data | `Observation` | `ObservationHealthMeasureOah` |
 | Clinic and the sites it serves | `Organization` + `HealthcareService` | Core R4 |
-| Health alert | `DetectedIssue` | Core R4 |
-| Clinic notification | `Communication` | Core R4 |
+| Clinician who signs in (SMART) | `Practitioner` + `PractitionerRole` | Core R4 |
+| Health alert | `DetectedIssue` | `StcStreamRiskAlert` (ours) |
+| Clinic notification | `Communication` | `StcClinicAlert` (ours) |
+| Clinic reply, and who signed it | `Communication` + `Provenance` | `StcClinicResponse` (ours) |
+| Advisory draft by a model | `Communication` + `Device` + `Provenance` | `StcClinicAdvisory`, `StcAdvisorDevice`, `StcAdvisoryProvenance` (ours) |
+| Report lineage | `Provenance` | `StcReportProvenance` (ours) |
 | Trigger for external observations | `Subscription` (rest-hook) | Core R4 |
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#fhir-resource-model). API contract: [docs/API.md](docs/API.md).
