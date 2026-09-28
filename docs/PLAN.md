@@ -11,7 +11,7 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 - **Validation:** CI checks resources from the real API code against the OAH IG: 0 errors.
 - **Advisory model:** live. `GEMINI_API_KEY` is set on the host and `/health` reports `"advisory": true`; drafts are stored as a `Communication` sent by `Device/stc-ai-advisor` with a `Provenance` naming it author. Draft the notice on a clinic-facing alert (bloom or mosquito) — the low-oxygen rule never notifies a clinic, so the model has little to work with there.
 - **Host:** EC2 `t4g.medium` in us-east-1b, ~1.03 GB of 3.8 GB in use, 22 GB disk free, load 0.06. No resizing needed; room for other projects.
-- **Next (user):** record the demo video from [DEMO_SCRIPT.md](DEMO_SCRIPT.md), add its link to [SUBMISSION.md](SUBMISSION.md), submit on Devpost before Oct 4, 9:00 PM PDT. Nothing else is outstanding in the code.
+- **Next:** Stage 9 (five more features, see below), then the demo video, recorded by the pipeline rather than by hand, then submit on Devpost before Oct 4, 9:00 PM PDT. The second team member has been added on Devpost.
 - **Also done:** site FHIR `Bundle` export, a `/standards` page for judges, a UI pass on the map, themes and colours, `Provenance` lineage on every citizen report, clinic acknowledgements that close the One Health loop, Greek/Italian for the citizen surface, the catchment trend view, a model-drafted clinic notice with its own `Provenance`, and Playwright journey tests in CI (Stage 7).
 - **Optional if time remains:** SMART on FHIR launch; review leftovers: alert reason dates in UTC, 200-item cap on alert/communication lists.
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
@@ -142,7 +142,20 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - [x] Journey tests: the report, the clinic reply, the advisory, the trends and the map run in CI on every push (Playwright against the in-browser mock)
 - [x] Catchment trends (`GET /trends`, `/trends` page): four weeks of reports per site and per region, a direction per indicator, the district health baselines alongside, and how many active alerts a clinic has answered
 
-### Stage 8: Submission (Sep 28–30)
+### Stage 9: Extension week (Sep 28 – Oct 3)
+The deadline moved to Oct 4, so five more features go in before the video. Each one is pushed to `main` (and deployed) once its tests pass.
+
+**The video is recorded automatically** by the demo-video pipeline (`~/Code/Hackathons/demo-video-pipeline`, Playwright in headless Chromium, one browser page, no login). So every feature must show its result inside the page: no OS notifications, no second device, no iframes, no pop-up windows. Give key elements stable selectors (`id` or `data-testid`), keep results deterministic with the seed data, and keep slow calls behind a visible loading state.
+
+- [ ] **Live clinic alerts.** `GET /events?clinicId=` (Server-Sent Events) pushes new alerts to an open clinic page, which shows them at once with a toast. Web push (`web-push`, VAPID keys in the host env file) notifies an installed clinic app when it is closed; subscriptions are kept in a small JSON file on an API volume. A `/loop` page puts a citizen phone and a clinic phone side by side on one page, so one report and the clinic's alert show up in the same shot.
+- [ ] **"What happened to my report."** `GET /reports/:id/journey` follows a report through `Provenance`, the `DetectedIssue`s that cite it as evidence, the `Communication`s sent to clinics, their replies and any advisory. `/reports/[id]` shows it as a timeline; the report success screen links to it and the device remembers the reporter's last reports.
+- [ ] **Stream-to-Clinic FHIR profiles (FSH).** Our own profiles for the resources the OAH IG does not cover (the alert `DetectedIssue`, clinic `Communication`, clinic reply, advisory `Communication`, report `Provenance`), with our CodeSystems and ValueSets, written in FSH and built with SUSHI on top of the OAH IG. The API sets `meta.profile`, CI validates against them, and the StructureDefinitions are loaded into the FHIR server so they resolve.
+- [ ] **SMART on FHIR launch for the clinic view.** A small SMART App Launch 2.0 authorization server in the API (`/.well-known/smart-configuration`, `/smart/authorize` with a demo clinician sign-in, `/smart/token` with PKCE), seeded `Practitioner` and `PractitionerRole` per clinic, and the clinic view as a SMART app using `fhirclient` 2.6 (standalone and EHR launch).
+- [ ] **FHIR agent.** `POST /agent/ask`: Gemini with function calling over read-only FHIR search tools answers questions about the data and returns every FHIR query it ran. An "Ask the data" page shows the answer and the queries as clickable links. The same tools are served as a remote MCP server at `/mcp`.
+- [ ] Review leftovers: alert reason dates in UTC; 200-item cap on alert and communication lists.
+- [ ] Demo video recorded with the pipeline, after all of the above is live.
+
+### Stage 8: Submission (Sep 28 – Oct 4)
 - [x] README: architecture diagram, screenshots, one-command setup
 - [x] Track alignment statement (in [SUBMISSION.md](SUBMISSION.md))
 - [x] Project description: problem, solution, target users, expected impact on ecosystem and human health (in [SUBMISSION.md](SUBMISSION.md))
