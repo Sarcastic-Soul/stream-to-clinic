@@ -20,6 +20,18 @@ export const CLINIC_ID_SYSTEM = `${STC_CANONICAL}/sid/clinic`;
 export const BUNDLE_ID_SYSTEM = `${STC_CANONICAL}/sid/site-bundle`;
 export const ACK_SYSTEM = `${STC_CANONICAL}/CodeSystem/alert-response`;
 
+// Our own profiles for what the OAH IG does not cover, written in FSH (ig/) and seeded into HAPI
+// from stc-definitions.json, so these canonical URLs resolve on the public server too.
+export const STC_PROFILES = {
+  streamRiskAlert: `${STC_CANONICAL}/StructureDefinition/stc-stream-risk-alert`,
+  clinicAlert: `${STC_CANONICAL}/StructureDefinition/stc-clinic-alert`,
+  clinicResponse: `${STC_CANONICAL}/StructureDefinition/stc-clinic-response`,
+  clinicAdvisory: `${STC_CANONICAL}/StructureDefinition/stc-clinic-advisory`,
+  advisorDevice: `${STC_CANONICAL}/StructureDefinition/stc-advisor-device`,
+  reportProvenance: `${STC_CANONICAL}/StructureDefinition/stc-report-provenance`,
+  advisoryProvenance: `${STC_CANONICAL}/StructureDefinition/stc-advisory-provenance`,
+} as const;
+
 export const UCUM = "http://unitsofmeasure.org";
 // Standard HL7 tag for synthetic test data; applied to all seeded demo resources.
 export const DEMO_TAG: fhir4.Coding = {

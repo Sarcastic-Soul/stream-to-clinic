@@ -5,7 +5,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { config } from "./config.js";
 import { fhir } from "./fhir.js";
 import { buildNarrative, narrativeText, parseNarrative } from "./narrative.js";
-import { ACK_SYSTEM, ALERT_ID_SYSTEM, RISK_SYSTEM } from "./oah.js";
+import { ACK_SYSTEM, ALERT_ID_SYSTEM, RISK_SYSTEM, STC_PROFILES } from "./oah.js";
 import { RISKS, evaluateRisks, type RiskDecision, type RiskId, type RiskLevel } from "./rules.js";
 import { loadClinics, siteObservations, type ClinicSummary, type Site } from "./store.js";
 import { getWeather } from "./weather.js";
@@ -75,6 +75,7 @@ export function toDetectedIssue(
   const met = decision.conditions.filter((c) => c.met);
   return {
     resourceType: "DetectedIssue",
+    meta: { profile: [STC_PROFILES.streamRiskAlert] },
     identifier: [{ system: ALERT_ID_SYSTEM, value: alertKey(site.id, decision.risk) }],
     status: "final",
     code: { coding: [{ system: RISK_SYSTEM, code: decision.risk, display: title }], text: title },
@@ -98,6 +99,7 @@ export function toCommunication(site: Site, decision: RiskDecision, issueRef: st
   const reasons = decision.conditions.filter((c) => c.met).map((c) => c.text);
   return {
     resourceType: "Communication",
+    meta: { profile: [STC_PROFILES.clinicAlert] },
     status: "completed",
     category: [{ coding: [ALERT_CATEGORY] }],
     priority: decision.level === "high" ? "urgent" : "routine",
@@ -232,6 +234,7 @@ export interface AckInput {
 export function toAckCommunication({ issueId, siteId, inResponseTo, clinic, action, note, sent }: AckInput): fhir4.Communication {
   return {
     resourceType: "Communication",
+    meta: { profile: [STC_PROFILES.clinicResponse] },
     status: "completed",
     category: [{ coding: [ALERT_CATEGORY] }],
     topic: { coding: [{ system: ACK_SYSTEM, code: action, display: ACK_ACTIONS[action] }], text: ACK_ACTIONS[action] },

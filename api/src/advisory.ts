@@ -5,6 +5,7 @@
 import { config } from "./config.js";
 import { fhir } from "./fhir.js";
 import type { AlertSummary } from "./alerts.js";
+import { STC_PROFILES } from "./oah.js";
 
 const ADVISORY_CATEGORY = { system: "http://terminology.hl7.org/CodeSystem/communication-category", code: "instruction" };
 const PARTICIPANT_TYPE = "http://terminology.hl7.org/CodeSystem/provenance-participant-type";
@@ -28,6 +29,7 @@ export function advisorDevice(model: string): fhir4.Device {
   return {
     resourceType: "Device",
     id: ADVISOR_DEVICE_ID,
+    meta: { profile: [STC_PROFILES.advisorDevice] },
     status: "active",
     deviceName: [{ name: `Stream-to-Clinic advisory model (${model})`, type: "model-name" }],
     type: { text: "Language model used to rewrite a rule-engine alert in plain language" },
@@ -53,6 +55,7 @@ export function toAdvisory(comm: fhir4.Communication): Advisory | undefined {
 export function toAdvisoryCommunication(alert: AlertSummary, text: string, model: string, sent: string): fhir4.Communication {
   return {
     resourceType: "Communication",
+    meta: { profile: [STC_PROFILES.clinicAdvisory] },
     status: "completed",
     category: [{ coding: [ADVISORY_CATEGORY] }],
     subject: { reference: `Group/cohort-${alert.siteId}` },
@@ -68,6 +71,7 @@ export function toAdvisoryCommunication(alert: AlertSummary, text: string, model
 export function toAdvisoryProvenance(communicationId: string, alert: AlertSummary, model: string, recorded: string): fhir4.Provenance {
   return {
     resourceType: "Provenance",
+    meta: { profile: [STC_PROFILES.advisoryProvenance] },
     target: [{ reference: `Communication/${communicationId}` }],
     recorded,
     activity: { coding: [{ system: DATA_OPERATION, code: "CREATE", display: "create" }] },

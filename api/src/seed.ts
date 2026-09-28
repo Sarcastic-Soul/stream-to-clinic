@@ -6,9 +6,7 @@ import { advisorDevice } from "./advisory.js";
 import { config } from "./config.js";
 import { fhir } from "./fhir.js";
 import { toOahObservation } from "./mapping.js";
-import { ACK_ACTIONS } from "./alerts.js";
 import {
-  ACK_SYSTEM,
   CITIZEN_INDICATORS,
   CLINIC_ID_SYSTEM,
   DEMO_TAG,
@@ -16,13 +14,11 @@ import {
   OAH_CODE_SYSTEM,
   OAH_LOCATION_ID_SYSTEM,
   OAH_PROFILES,
-  PRESENCE_SYSTEM,
-  RISK_SYSTEM,
   UCUM,
   type CitizenIndicator,
   type Presence,
 } from "./oah.js";
-import { RISKS } from "./rules.js";
+import definitions from "./stc-definitions.json" with { type: "json" };
 
 const SNOMED = "http://snomed.info/sct";
 const RIVER = { coding: [{ system: SNOMED, code: "420531007", display: "River" }] };
@@ -131,27 +127,9 @@ const tagged = <T extends fhir4.Resource>(resource: T): T => ({
   meta: { ...resource.meta, tag: [DEMO_TAG] },
 });
 
-function codeSystems(): fhir4.CodeSystem[] {
-  const base = { resourceType: "CodeSystem", status: "active", content: "complete", experimental: true } as const;
-  return [
-    {
-      ...base, id: "presence", url: PRESENCE_SYSTEM, name: "Presence", title: "Presence of a visual stream indicator",
-      concept: [
-        { code: "absent", display: "Absent" },
-        { code: "present", display: "Present" },
-        { code: "abundant", display: "Abundant" },
-      ],
-    },
-    {
-      ...base, id: "water-health-risk", url: RISK_SYSTEM, name: "WaterHealthRisk", title: "Water-related health risks raised by Stream-to-Clinic",
-      concept: Object.entries(RISKS).map(([code, { title }]) => ({ code, display: title })),
-    },
-    {
-      ...base, id: "alert-response", url: ACK_SYSTEM, name: "AlertResponse", title: "What a clinic did about an alert",
-      concept: Object.entries(ACK_ACTIONS).map(([code, display]) => ({ code, display })),
-    },
-  ];
-}
+// Our profiles, code systems and value sets, built by SUSHI from ig/ (validation/build-stc-ig.sh).
+// Seeded first, so the canonical URLs in meta.profile and in codings resolve on the public server.
+export const STC_DEFINITIONS = definitions as unknown as (fhir4.StructureDefinition | fhir4.CodeSystem | fhir4.ValueSet)[];
 
 function locations(): fhir4.Location[] {
   const parents = WATER_BODIES.map<fhir4.Location>((w) => ({
@@ -301,7 +279,7 @@ export function subscription(): fhir4.Subscription {
 
 export function seedBundle(now = new Date()): fhir4.Bundle {
   const resources: fhir4.Resource[] = [
-    ...codeSystems(),
+    ...STC_DEFINITIONS,
     ...locations(),
     ...clinics(),
     ...cohorts(),
