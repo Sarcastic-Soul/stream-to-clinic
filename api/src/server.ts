@@ -14,6 +14,7 @@ import { highestLevel } from "./rules.js";
 import { adviseOnAlert, advisoryEnabled, loadAdvisory } from "./advisory.js";
 import { AgentError, AgentGuard, agentEnabled, askAgent } from "./agent.js";
 import { registerMcp } from "./mcp.js";
+import { registerSmart, smartUser } from "./smart.js";
 import { clampDays, loadTrends, TREND_DAYS } from "./trends.js";
 import { seed } from "./seed.js";
 import { alertEvents, isFor, sseFrame, type RaisedAlert } from "./events.js";
@@ -247,6 +248,8 @@ app.post<{ Params: { id: string } }>("/alerts/:id/advisory", { schema: ID_PARAMS
 
 // A notified clinic reports back what it did. Closes the loop: the reply is a FHIR Communication
 // linked to the one we sent, so the environmental side can see which warnings led to action.
+// With a SMART on FHIR access token the reply is also signed: a Provenance names the clinician.
+// The token must belong to the replying clinic. Without one, the open demo still accepts replies.
 app.post<{ Params: { id: string }; Body: { clinicId: string; action: AckAction; note?: string } }>(
   "/alerts/:id/acknowledge",
   {
@@ -266,7 +269,11 @@ app.post<{ Params: { id: string }; Body: { clinicId: string; action: AckAction; 
   },
   async (req, reply) => {
     const { clinicId, action, note } = req.body;
-    const result = await acknowledgeAlert(req.params.id, clinicId, action, note);
+    const user = await smartUser(req);
+    if (user === "invalid") return reply.code(401).header("WWW-Authenticate", 'Bearer error="invalid_token"').send({ error: "Sign in again: the access token is not valid" });
+    if (user && user.clinicId !== clinicId) return reply.code(403).send({ error: "This access token is for another clinic" });
+    if (user && !/(^|\s)user\/(Communication|\*)\.(c|\*|write)/.test(user.scope)) return reply.code(403).send({ error: "The access token does not allow sending replies" });
+    const result = await acknowledgeAlert(req.params.id, clinicId, action, note, user);
     if ("error" in result) return reply.code(result.status).send({ error: result.error });
     return reply.code(201).send(result);
   },
@@ -434,6 +441,7 @@ app.post<{ Body: { question: string } }>(
 
 // The same read-only tools as a remote MCP server (Streamable HTTP, stateless).
 registerMcp(app);
+registerSmart(app);
 
 await app.listen({ host: "0.0.0.0", port: config.port });
 startPush(app.log);

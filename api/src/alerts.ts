@@ -31,6 +31,8 @@ export interface Acknowledgement {
   note?: string;
   at: string;
   fhirUrl: string;
+  /** The clinician who sent the reply, when they were signed in with SMART on FHIR. */
+  signedBy?: { name: string; fhirUser: string; provenance: string };
 }
 
 export interface AlertSummary {
@@ -127,11 +129,14 @@ export interface IssueCommunications {
 // Maps Communications back to the DetectedIssue each one is about. A Communication with
 // inResponseTo is a clinic answering; anything else is us notifying a clinic.
 export async function loadCommunications() {
-  const matches = await fhir.searchAll("Communication", {
-    category: `${ALERT_CATEGORY.system}|${ALERT_CATEGORY.code}`,
-    _sort: "-_lastUpdated",
-    _count: 200,
-  });
+  const [matches, signatures] = await Promise.all([
+    fhir.searchAll("Communication", {
+      category: `${ALERT_CATEGORY.system}|${ALERT_CATEGORY.code}`,
+      _sort: "-_lastUpdated",
+      _count: 200,
+    }),
+    loadSignatures(),
+  ]);
   const byIssue = new Map<string, IssueCommunications>();
   const forIssue = (id: string) => {
     const found = byIssue.get(id) ?? { sent: [], replies: [] };
@@ -142,7 +147,8 @@ export async function loadCommunications() {
     const issueId = comm.about?.[0]?.reference?.replace("DetectedIssue/", "");
     if (!issueId || !comm.id) continue;
     const reply = toAcknowledgement(comm);
-    if (reply) forIssue(issueId).replies.push(reply);
+    const signedBy = signatures.get(comm.id);
+    if (reply) forIssue(issueId).replies.push(signedBy ? { ...reply, signedBy } : reply);
     else {
       const clinicId = comm.recipient?.[0]?.reference?.replace("Organization/", "") ?? "";
       forIssue(issueId).sent.push({ id: comm.id, clinicId, clinicName: comm.recipient?.[0]?.display ?? clinicId, at: comm.sent ?? "" });
@@ -150,6 +156,49 @@ export async function loadCommunications() {
   }
   for (const entry of byIssue.values()) entry.replies.sort((a, b) => a.at.localeCompare(b.at));
   return byIssue;
+}
+
+// Replies sent by a clinician signed in with SMART on FHIR carry a Provenance naming them as the
+// author on behalf of their clinic. Tagged, so one search finds them all.
+export const SIGNED_REPLY_TAG: fhir4.Coding = { system: ACK_SYSTEM, code: "smart-signed", display: "Signed with SMART on FHIR" };
+
+export interface Signer {
+  practitionerId: string;
+  roleId: string;
+  name: string;
+}
+
+export function toReplyProvenance(communicationId: string, signer: Signer, clinic: { id: string; name: string }, recorded: string): fhir4.Provenance {
+  return {
+    resourceType: "Provenance",
+    meta: { tag: [SIGNED_REPLY_TAG] },
+    target: [{ reference: `Communication/${communicationId}` }],
+    recorded,
+    activity: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/v3-DataOperation", code: "CREATE", display: "create" }] },
+    agent: [
+      {
+        type: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/provenance-participant-type", code: "author", display: "Author" }] },
+        who: { reference: `Practitioner/${signer.practitionerId}`, display: signer.name },
+        onBehalfOf: { reference: `Organization/${clinic.id}`, display: clinic.name },
+      },
+      {
+        type: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/provenance-participant-type", code: "enterer", display: "Enterer" }] },
+        who: { reference: `PractitionerRole/${signer.roleId}`, display: signer.name },
+      },
+    ],
+  };
+}
+
+async function loadSignatures(): Promise<Map<string, NonNullable<Acknowledgement["signedBy"]>>> {
+  const provenances = await fhir.searchAll("Provenance", { _tag: `${SIGNED_REPLY_TAG.system}|${SIGNED_REPLY_TAG.code}`, _count: 200 });
+  const byComm = new Map<string, NonNullable<Acknowledgement["signedBy"]>>();
+  for (const p of provenances) {
+    const commId = p.target[0]?.reference?.replace("Communication/", "");
+    const author = p.agent.find((a) => a.who.reference?.startsWith("Practitioner/"))?.who;
+    if (!p.id || !commId || !author?.reference) continue;
+    byComm.set(commId, { name: author.display ?? author.reference, fhirUser: publicUrl(author.reference), provenance: publicUrl(`Provenance/${p.id}`) });
+  }
+  return byComm;
 }
 
 export function toAcknowledgement(comm: fhir4.Communication): Acknowledgement | undefined {
@@ -263,6 +312,7 @@ export async function acknowledgeAlert(
   clinicId: string,
   action: AckAction,
   note?: string,
+  signer?: Signer,
 ): Promise<AckResult> {
   const [issue, comms, clinics] = await Promise.all([
     fhir.read("DetectedIssue", alertId),
@@ -276,7 +326,8 @@ export async function acknowledgeAlert(
   const original = (comms.get(issue.id)?.sent ?? []).find((c) => c.clinicId === clinicId);
   if (!original) return { error: `${clinic.name} was not notified about this alert`, status: 409 };
 
-  await fhir.create(
+  const sent = new Date().toISOString();
+  const reply = await fhir.create(
     toAckCommunication({
       issueId: issue.id,
       siteId: issue.implicated?.[0]?.reference?.replace("Location/", "") ?? "",
@@ -284,9 +335,10 @@ export async function acknowledgeAlert(
       clinic,
       action,
       note,
-      sent: new Date().toISOString(),
+      sent,
     }),
   );
+  if (signer && reply.id) await fhir.create(toReplyProvenance(reply.id, signer, clinic, sent));
 
   const updated = await getAlert(issue.id);
   return updated ?? { error: `Unknown alert ${alertId}`, status: 404 };

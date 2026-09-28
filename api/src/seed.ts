@@ -57,15 +57,29 @@ export const SITES = [
 type SiteId = (typeof SITES)[number]["id"];
 
 // Fictional clinics. Names end in "(demo)" and must not imitate real facilities.
-const CLINICS: { id: string; name: string; city: string; country: string; sites: SiteId[] }[] = [
-  { id: "clinic-almyros", name: "Almyros Primary Care Unit (demo)", city: "Gazi", country: "GR", sites: ["Loc-Almyros"] },
+// Each has one fictional clinician, the demo user who signs in to the clinic app with SMART on FHIR.
+const CLINICS: { id: string; name: string; city: string; country: string; sites: SiteId[]; clinician: { given: string; family: string } }[] = [
+  {
+    id: "clinic-almyros", name: "Almyros Primary Care Unit (demo)", city: "Gazi", country: "GR", sites: ["Loc-Almyros"],
+    clinician: { given: "Eleni", family: "Demo-Almyrou" },
+  },
   {
     id: "clinic-heraklion-west", name: "Heraklion West Family Health Clinic (demo)", city: "Heraklion", country: "GR",
     sites: ["Loc-Almyros", "Loc-Giofyros", "Loc-Giofyros-LowerReach"],
+    clinician: { given: "Nikos", family: "Demo-Irakliou" },
   },
-  { id: "clinic-giofyros-valley", name: "Giofyros Valley Health Post (demo)", city: "Heraklion", country: "GR", sites: ["Loc-Giofyros-LowerReach"] },
-  { id: "clinic-benevento", name: "Benevento Riverside Community Clinic (demo)", city: "Benevento", country: "IT", sites: ["Loc-Benevento"] },
+  {
+    id: "clinic-giofyros-valley", name: "Giofyros Valley Health Post (demo)", city: "Heraklion", country: "GR", sites: ["Loc-Giofyros-LowerReach"],
+    clinician: { given: "Maria", family: "Demo-Giofyrou" },
+  },
+  {
+    id: "clinic-benevento", name: "Benevento Riverside Community Clinic (demo)", city: "Benevento", country: "IT", sites: ["Loc-Benevento"],
+    clinician: { given: "Giulia", family: "Demo-Benevento" },
+  },
 ];
+
+/** Ids of a clinic's demo clinician and their role, as seeded. */
+export const clinicianIds = (clinicId: string) => ({ practitioner: `gp-${clinicId}`, role: `role-${clinicId}` });
 
 // Synthetic district baselines (% of residents, previous calendar year).
 const BASELINES: Record<SiteId, Record<keyof typeof HEALTH_MEASURES, number>> = {
@@ -176,6 +190,21 @@ function clinics(): fhir4.Resource[] {
       providedBy: { reference: `Organization/${c.id}`, display: c.name },
       name: "Primary care",
       coverageArea: c.sites.map((id) => ({ reference: `Location/${id}` })),
+    }),
+    tagged<fhir4.Practitioner>({
+      resourceType: "Practitioner",
+      id: clinicianIds(c.id).practitioner,
+      active: true,
+      name: [{ use: "official", given: [c.clinician.given], family: c.clinician.family, prefix: ["Dr"], text: `Dr ${c.clinician.given} ${c.clinician.family} (demo)` }],
+    }),
+    tagged<fhir4.PractitionerRole>({
+      resourceType: "PractitionerRole",
+      id: clinicianIds(c.id).role,
+      active: true,
+      practitioner: { reference: `Practitioner/${clinicianIds(c.id).practitioner}`, display: `Dr ${c.clinician.given} ${c.clinician.family} (demo)` },
+      organization: { reference: `Organization/${c.id}`, display: c.name },
+      code: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/practitioner-role", code: "doctor", display: "Doctor" }] }],
+      healthcareService: [{ reference: `HealthcareService/service-${c.id}` }],
     }),
   ]);
 }

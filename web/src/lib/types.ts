@@ -61,6 +61,8 @@ export interface Acknowledgement {
   note?: string;
   at: string;
   fhirUrl: string;
+  /** The clinician who sent it, when signed in with SMART on FHIR; `provenance` is the FHIR URL. */
+  signedBy?: { name: string; fhirUser: string; provenance: string };
 }
 
 export interface AcknowledgeInput {

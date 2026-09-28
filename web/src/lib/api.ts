@@ -1,7 +1,8 @@
+import { API_URL, FHIR_URL } from "./endpoints";
+import { smartTokenFor } from "./smart";
 import type { AcknowledgeInput, AlertFilter, AlertSummary, Api, LiveAlertHandlers, ReportInput } from "./types";
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://oneaquahealth.duckdns.org").replace(/\/$/, "");
-export const FHIR_URL = `${API_URL}/fhir`;
+export { API_URL, FHIR_URL } from "./endpoints";
 // Remote MCP server serving the same read-only tools as the agent.
 export const MCP_URL = `${API_URL}/mcp`;
 export const MOCK = process.env.NEXT_PUBLIC_API_MOCK === "1";
@@ -60,12 +61,15 @@ const httpApi: Api = {
     return request(`/alerts${query}`);
   },
   getAlert: (id) => request(`/alerts/${enc(id)}`),
-  acknowledgeAlert: (id, input: AcknowledgeInput) =>
-    request(`/alerts/${enc(id)}/acknowledge`, {
+  // A clinician signed in with SMART on FHIR for this clinic sends their token, so the reply is signed.
+  acknowledgeAlert: (id, input: AcknowledgeInput) => {
+    const token = smartTokenFor(input.clinicId);
+    return request(`/alerts/${enc(id)}/acknowledge`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(input),
-    }),
+    });
+  },
   getTrends: (days?: number) => request(`/trends${days ? `?days=${days}` : ""}`),
   requestAdvisory: (id: string) => request(`/alerts/${enc(id)}/advisory`, { method: "POST" }),
   subscribeAlerts: (clinicId, { onAlert, onStatus }: LiveAlertHandlers) => {

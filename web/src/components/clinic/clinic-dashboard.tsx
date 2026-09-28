@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCard } from "@/components/alert-card";
 import { AlertBanner, LiveIndicator } from "@/components/clinic/live-alerts";
 import { PushToggle } from "@/components/clinic/push-toggle";
+import { SmartPanel } from "@/components/clinic/smart-panel";
 import { LoadError, LoadingRows } from "@/components/status";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -75,6 +76,7 @@ export function ClinicDashboard({ clinicId }: { clinicId?: string }) {
           </p>
         )}
         {clinicId && <PushToggle clinicId={clinicId} />}
+        {clinic && <SmartPanel clinic={clinic} />}
       </div>
 
       {banner && clinicId && <AlertBanner arrival={banner} clinicId={clinicId} onDismiss={dismissBanner} />}

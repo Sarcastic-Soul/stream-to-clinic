@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { CircleAlertIcon, LoaderCircleIcon, ReplyIcon } from "lucide-react";
+import { CircleAlertIcon, LoaderCircleIcon, ReplyIcon, ShieldCheckIcon } from "lucide-react";
 import { ChoiceGroup } from "@/components/choice-group";
 import { FhirLink } from "@/components/fhir-link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { api } from "@/lib/api";
+import { useSmartSession } from "@/hooks/use-smart-session";
+import { api, ApiError, MOCK } from "@/lib/api";
+import { signOutSmart } from "@/lib/smart";
 import { ACK_ACTIONS, ACK_ACTION_IDS, formatDateTime } from "@/lib/format";
 import type { AckAction, AlertSummary, ClinicSummary } from "@/lib/types";
 
@@ -26,6 +28,8 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const session = useSmartSession();
+  const signer = session && clinic && session.clinicId === clinic.id ? session : null;
 
   const replies = alert.acknowledgements ?? [];
   const notified = alert.watchFor !== "";
@@ -40,6 +44,7 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
       setAction(null);
       setNote("");
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) signOutSmart();
       setError(err instanceof Error ? err.message : "Could not send the response.");
     } finally {
       setSubmitting(false);
@@ -68,8 +73,15 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
                 {reply.clinicName} · <time dateTime={reply.at}>{formatDateTime(reply.at)}</time>
               </p>
               {reply.note && <p className="mt-1">{reply.note}</p>}
-              <p className="mt-1">
+              {reply.signedBy && (
+                <p className="mt-1 flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400" data-testid="reply-signed">
+                  <ShieldCheckIcon className="size-4" aria-hidden />
+                  Signed by {reply.signedBy.name}
+                </p>
+              )}
+              <p className="mt-1 flex flex-wrap gap-x-3">
                 <FhirLink href={reply.fhirUrl}>Communication/{reply.id}</FhirLink>
+                {reply.signedBy && <FhirLink href={reply.signedBy.provenance}>Provenance/{reply.signedBy.provenance.split("/").pop()}</FhirLink>}
               </p>
             </li>
           ))}
@@ -110,6 +122,19 @@ export function Acknowledge({ alert, clinic, onAcknowledged }: Props) {
               className="text-base"
             />
           </div>
+
+          {!MOCK && (
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="ack-signer">
+              {signer ? (
+                <>
+                  <ShieldCheckIcon className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                  Signed as {signer.practitionerName} with SMART on FHIR
+                </>
+              ) : (
+                "Not signed in: the reply is sent for the clinic without a clinician's name."
+              )}
+            </p>
+          )}
 
           {error && (
             <Alert variant="destructive" role="alert">

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ACK_ACTIONS, toAcknowledgement } from "../src/alerts.js";
+import { ACK_ACTIONS, SIGNED_REPLY_TAG, toAcknowledgement, toReplyProvenance } from "../src/alerts.js";
 import { ACK_SYSTEM } from "../src/oah.js";
 
 const reply = (over: Partial<fhir4.Communication> = {}): fhir4.Communication => ({
@@ -31,4 +31,14 @@ test("toAcknowledgement ignores an outbound alert, an unknown action and a missi
   assert.equal(toAcknowledgement(reply({ inResponseTo: undefined })), undefined);
   assert.equal(toAcknowledgement(reply({ topic: { coding: [{ system: ACK_SYSTEM, code: "nonsense" }] } })), undefined);
   assert.equal(toAcknowledgement(reply({ sender: { display: "Someone" } })), undefined);
+});
+
+test("toReplyProvenance names the signed-in clinician as author for their clinic", () => {
+  const p = toReplyProvenance("c9", { practitionerId: "gp-clinic-almyros", roleId: "role-clinic-almyros", name: "Dr Eleni (demo)" }, { id: "clinic-almyros", name: "Almyros (demo)" }, "2026-09-20T11:00:00.000Z");
+
+  assert.deepEqual(p.target, [{ reference: "Communication/c9" }]);
+  assert.deepEqual(p.meta?.tag, [SIGNED_REPLY_TAG]);
+  assert.equal(p.agent[0].who.reference, "Practitioner/gp-clinic-almyros");
+  assert.equal(p.agent[0].onBehalfOf?.reference, "Organization/clinic-almyros");
+  assert.equal(p.agent[1].who.reference, "PractitionerRole/role-clinic-almyros");
 });
