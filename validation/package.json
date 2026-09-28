@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build-ig": "./build-ig.sh",
+    "build-ig": "./build-ig.sh && ./build-stc-ig.sh",
     "generate": "tsx generate-samples.ts",
     "validate": "./validate.sh",
     "test": "npm run build-ig && npm run generate && npm run validate"

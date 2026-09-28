@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Validates samples/baseline and samples/generated against FHIR 4.0.1 + the OAH IG built by build-ig.sh.
+# Validates samples/baseline and samples/generated against FHIR 4.0.1, the OAH IG built by build-ig.sh
+# and the Stream-to-Clinic profiles built by build-stc-ig.sh. The profiles and their examples are
+# validated too.
 # Fails on any error; warnings are listed but allowed.
 set -uo pipefail
 
@@ -11,10 +13,15 @@ here="$(cd "$(dirname "$0")" && pwd)"
 work="$here/.work"
 jar="$work/validator_cli-$VALIDATOR_VERSION.jar"
 ig="$work/oah/fsh-generated/resources"
+stc="$here/../ig/fsh-generated/resources"
 log="$work/validation.log"
 
 if [[ ! -d "$ig" ]]; then
   echo "OAH IG not built; run ./build-ig.sh first" >&2
+  exit 2
+fi
+if [[ ! -d "$stc" ]]; then
+  echo "Stream-to-Clinic profiles not built; run ./build-stc-ig.sh first" >&2
   exit 2
 fi
 
@@ -26,22 +33,18 @@ if [[ ! -f "$jar" ]]; then
   mv "$jar.part" "$jar"
 fi
 
-inputs=()
+inputs=("$stc")
 for dir in "$here/samples/baseline" "$here/samples/generated"; do
   [[ -d "$dir" ]] && inputs+=("$dir")
 done
-if [[ ${#inputs[@]} -eq 0 ]]; then
+if [[ ${#inputs[@]} -eq 1 ]]; then
   echo "No samples; run npm run generate first" >&2
   exit 2
 fi
 
-# The API's own CodeSystems (presence, risk) are loaded as definitions too, so their codes are checked.
-igs=(-ig "$ig")
-for dir in "${inputs[@]}"; do
-  for cs in "$dir"/CodeSystem-*.json; do
-    [[ -f "$cs" ]] && igs+=(-ig "$cs")
-  done
-done
+# Our profiles and code systems (presence, risk, alert response) are loaded as definitions, so the
+# resources that declare them and their codes are checked.
+igs=(-ig "$ig" -ig "$stc")
 
 java "-Xmx$JAVA_XMX" -jar "$jar" "${inputs[@]}" \
   -version 4.0.1 "${igs[@]}" -tx "$TX" > "$log" 2>&1
