@@ -88,6 +88,8 @@ export interface AgentDeps {
   fetch?: typeof fetch;
   runTool?: (name: string, args: unknown) => Promise<ToolResult>;
   now?: () => Date;
+  /** Pause before the second pass through the models. */
+  retryPauseMs?: number;
 }
 
 function clip(data: unknown): unknown {
@@ -109,13 +111,18 @@ export async function askAgent(question: string, deps: AgentDeps = {}): Promise<
   const deadline = Date.now() + TOTAL_TIMEOUT_MS;
   // A busy model hands the whole question to the next one: thought signatures belong to the model
   // that wrote them, so a conversation cannot switch models halfway.
+  // Busy spells are short, so after one pass through the list it tries once more.
   let busy: AgentError | undefined;
-  for (const model of geminiModels) {
-    try {
-      return await askModel(model, question, deadline, deps);
-    } catch (err) {
-      if (!(err instanceof AgentError) || !err.busy) throw err;
-      busy = err;
+  for (let pass = 0; pass < 2; pass++) {
+    if (pass) await new Promise((resolve) => setTimeout(resolve, deps.retryPauseMs ?? 1500));
+    for (const model of geminiModels) {
+      if (Date.now() >= deadline) throw new AgentError("The agent took too long to answer", 504);
+      try {
+        return await askModel(model, question, deadline, deps);
+      } catch (err) {
+        if (!(err instanceof AgentError) || !err.busy) throw err;
+        busy = err;
+      }
     }
   }
   throw busy!;

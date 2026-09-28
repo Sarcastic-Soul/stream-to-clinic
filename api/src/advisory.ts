@@ -123,8 +123,14 @@ export async function draftAdvisory(alert: AlertSummary): Promise<{ text: string
   const { geminiApiKey, geminiModels } = config;
   if (!geminiApiKey || !geminiModels.length) throw new Error("No model key configured");
 
+  // Busy spells are short: after one pass through the list, pause and try once more.
+  const attempts = [...geminiModels, ...geminiModels];
+  const deadline = Date.now() + 45_000;
   let lastError: Error | undefined;
-  for (const model of geminiModels) {
+  for (const [i, model] of attempts.entries()) {
+    if (i === geminiModels.length) await new Promise((resolve) => setTimeout(resolve, 1500));
+    const remaining = deadline - Date.now();
+    if (remaining <= 1000) break;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     let response: Response;
     try {
@@ -135,7 +141,7 @@ export async function draftAdvisory(alert: AlertSummary): Promise<{ text: string
           contents: [{ role: "user", parts: [{ text: buildPrompt(alert) }] }],
           generationConfig: { temperature: 0.2, maxOutputTokens: 400 },
         }),
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(Math.min(remaining, 15_000)),
       });
     } catch (err) {
       // A model that hangs is as busy as one that says so: try the next.

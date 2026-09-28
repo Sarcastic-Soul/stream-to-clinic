@@ -86,7 +86,8 @@ test("after the last tool round the model must answer without tools", async () =
 
 test("model failures become clear errors", async () => {
   await assert.rejects(
-    askAgent("q?", { fetch: scriptedModel([new Response("{}", { status: 429 })]).fetch }),
+    // Busy on both passes through the (one-model) list.
+    askAgent("q?", { fetch: scriptedModel([new Response("{}", { status: 429 }), new Response("{}", { status: 429 })]).fetch, retryPauseMs: 0 }),
     (err: AgentError) => err.status === 502 && /busy/.test(err.message),
   );
   await assert.rejects(

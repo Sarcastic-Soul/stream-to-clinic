@@ -25,7 +25,7 @@ export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   // Models to try in order, comma-separated. The free tier sometimes answers "high demand" (503) or
   // hangs for one model while another is fine, so a busy model hands the question to the next.
-  geminiModels: (process.env.GEMINI_MODEL || "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.6-flash")
+  geminiModels: (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite,gemini-3.5-flash-lite,gemini-3.6-flash,gemini-3.7-flash,gemini-flash-latest")
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean),
