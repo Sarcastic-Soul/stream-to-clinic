@@ -1,6 +1,6 @@
 # Demo video script
 
-The video is made by the demo-video pipeline (`~/Code/Hackathons/demo-video-pipeline`), not recorded by hand. It drives the live site in headless Chromium with Playwright, reads the narration with a text-to-speech voice, and adds a drawn hook, slides and an end card. The plan that produces it is `output/stream-to-clinic/video.json` in the pipeline folder. The rules ask for 3 to 5 minutes; the video is 3 minutes 22.
+The video is made by the demo-video pipeline (`~/Code/Hackathons/demo-video-pipeline`), not recorded by hand. It drives the live site in headless Chromium with Playwright, reads the narration with a text-to-speech voice, and adds a drawn hook, slides and an end card. The plan that produces it is `output/stream-to-clinic/video.json` in the pipeline folder. The rules ask for 3 to 5 minutes; the video is 3 minutes 21.
 
 ## What the video must land
 
