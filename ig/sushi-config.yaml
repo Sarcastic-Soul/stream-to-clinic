@@ -1,0 +1,15 @@
+# Stream-to-Clinic FHIR profiles: the resources the OneAquaHealth IG does not cover (alerts, clinic
+# messages and replies, the model-drafted advisory, report lineage), built with SUSHI on top of it.
+# The canonical is the public FHIR server, where the API's seed loads these definitions, so every
+# canonical URL resolves there. Build with validation/build-stc-ig.sh.
+canonical: https://oneaquahealth.duckdns.org/fhir
+status: draft
+version: 0.1.0
+fhirVersion: 4.0.1
+# Conformance resources only; the IG Publisher is not used.
+FSHOnly: true
+applyExtensionMetadataToRoot: false
+dependencies:
+  # Not on packages.fhir.org: build-stc-ig.sh adds the OAH IG built from source to the local
+  # FHIR package cache first.
+  hl7.eu.fhir.oah: 0.1.0-ci-build

@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "api/**"
+      - "ig/**"
       - "validation/**"
       - ".github/workflows/validate-fhir.yml"
   push:
     branches: [main]
     paths:
       - "api/**"
+      - "ig/**"
       - "validation/**"
       - ".github/workflows/validate-fhir.yml"
   workflow_dispatch:
@@ -51,6 +53,15 @@ jobs:
         working-directory: api
       - run: npm ci
       - run: ./build-ig.sh
+      # Our own profiles (ig/), built on top of the OAH IG. The API seeds the definitions from the
+      # committed api/src/stc-definitions.json, which must match this fresh build.
+      - run: ./build-stc-ig.sh
+      - name: Committed definitions match the FSH source
+        run: |
+          git diff --exit-code -- ../api/src/stc-definitions.json || {
+            echo "::error::api/src/stc-definitions.json is out of date: run validation/build-stc-ig.sh and commit it"
+            exit 1
+          }
       - run: npm run generate
       - run: ./validate.sh
       - if: always()
@@ -60,4 +71,5 @@ jobs:
           path: |
             validation/.work/validation.log
             validation/samples/generated
+            ig/fsh-generated/resources
           if-no-files-found: ignore

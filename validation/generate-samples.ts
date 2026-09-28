@@ -12,7 +12,7 @@ import { CITIZEN_INDICATORS, PRESENCE_VALUES, type CitizenIndicator } from "../a
 import { parsePhoto, photoTransaction } from "../api/src/photos.js";
 import { toProvenance } from "../api/src/provenance.js";
 import type { RiskDecision } from "../api/src/rules.js";
-import { SITES, seedBundle } from "../api/src/seed.js";
+import { SITES, STC_DEFINITIONS, seedBundle } from "../api/src/seed.js";
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), "samples", "generated");
 const NOW = new Date("2026-07-15T12:00:00Z"); // fixed, so samples are reproducible
@@ -38,9 +38,11 @@ function citizenReports(): fhir4.Resource[] {
 }
 
 // Every seed resource, except that the synthetic citizen history (same mapping as above, ~200
-// Observations) is cut down to one Observation per indicator.
+// Observations) is cut down to one Observation per indicator, and our profiles, code systems and
+// value sets are left out: validate.sh loads and checks them straight from the SUSHI build.
 function seedResources(): fhir4.Resource[] {
-  const resources = (seedBundle(NOW).entry ?? []).flatMap((e) => (e.resource ? [e.resource] : []));
+  const definitions = new Set<fhir4.Resource>(STC_DEFINITIONS);
+  const resources = (seedBundle(NOW).entry ?? []).flatMap((e) => (e.resource && !definitions.has(e.resource) ? [e.resource] : []));
   const seenHistory = new Set<string>();
   return resources.filter((r) => {
     if (r.resourceType !== "Observation" || !r.id?.startsWith("seed-")) return true;

@@ -14,28 +14,85 @@ const OAH_COMMIT = "b907cf0869b59d82d9138b3d147fca66f333d911";
 const OAH_SOURCE = `https://github.com/hl7-eu/oah/blob/${OAH_COMMIT}/input/fsh/profiles`;
 const VALIDATE_WORKFLOW = `${REPO_URL}/actions/workflows/validate-fhir.yml`;
 const OAH = "http://hl7.eu/fhir/ig/oah/StructureDefinition";
+// Our own profiles (ig/ in the repo, built with SUSHI on top of the OAH IG), loaded into the public FHIR server.
+const STC_SOURCE = `${REPO_URL}/tree/main/ig/input/fsh`;
+const oah = (name: string, file: string) => ({ name, href: `${OAH_SOURCE}/${file}` });
+const stc = (name: string, id: string) => ({ name, href: `${FHIR_URL}/StructureDefinition/${id}`, ours: true });
 
-const MAPPING: { concept: string; resource: string; profile?: { name: string; file: string } }[] = [
-  { concept: "Stream site", resource: "Location", profile: { name: "LocationOah", file: "location-oah.fsh" } },
+const MAPPING: { concept: string; resource: string; profile?: { name: string; href: string; ours?: boolean } }[] = [
+  { concept: "Stream site", resource: "Location", profile: oah("LocationOah", "location-oah.fsh") },
   {
     concept: "Citizen report (temperature, pH, oxygen, conductivity, foam, algae, larvae)",
     resource: "Observation",
-    profile: { name: "ObservationIndicatorsOah", file: "observation-indicators-oah.fsh" },
+    profile: oah("ObservationIndicatorsOah", "observation-indicators-oah.fsh"),
   },
   { concept: "Report photo", resource: "Media + Binary" },
-  { concept: "Who reported it and when it was recorded", resource: "Provenance" },
-  { concept: "District cohort near a stream", resource: "Group", profile: { name: "GroupOah", file: "group-oah.fsh" } },
+  { concept: "Who reported it and when it was recorded", resource: "Provenance", profile: stc("StcReportProvenance", "stc-report-provenance") },
+  { concept: "District cohort near a stream", resource: "Group", profile: oah("GroupOah", "group-oah.fsh") },
   {
     concept: "Baseline disease prevalence",
     resource: "Observation",
-    profile: { name: "ObservationHealthMeasureOah", file: "observation-health-measure-oah.fsh" },
+    profile: oah("ObservationHealthMeasureOah", "observation-health-measure-oah.fsh"),
   },
   { concept: "Clinic and the streams it serves", resource: "Organization + HealthcareService" },
-  { concept: "Health alert with its evidence and reasoning", resource: "DetectedIssue" },
-  { concept: "Alert sent to a clinic", resource: "Communication" },
-  { concept: "Clinic's reply: what it did about the alert", resource: "Communication (inResponseTo)" },
-  { concept: "Plain-language notice drafted by a model", resource: "Communication (sender Device) + Provenance" },
+  {
+    concept: "Health alert with its evidence and reasoning",
+    resource: "DetectedIssue",
+    profile: stc("StcStreamRiskAlert", "stc-stream-risk-alert"),
+  },
+  { concept: "Alert sent to a clinic", resource: "Communication", profile: stc("StcClinicAlert", "stc-clinic-alert") },
+  {
+    concept: "Clinic's reply: what it did about the alert",
+    resource: "Communication (inResponseTo)",
+    profile: stc("StcClinicResponse", "stc-clinic-response"),
+  },
+  {
+    concept: "Plain-language notice drafted by a model",
+    resource: "Communication (sender Device) + Provenance",
+    profile: stc("StcClinicAdvisory", "stc-clinic-advisory"),
+  },
   { concept: "Trigger for observations from other systems", resource: "Subscription (rest-hook)" },
+];
+
+// What each of our profiles pins down, beyond core R4.
+const STC_PROFILES: { name: string; id: string; resource: string; what: string }[] = [
+  {
+    name: "StcStreamRiskAlert",
+    id: "stc-stream-risk-alert",
+    resource: "DetectedIssue",
+    what: "Risk code from our value set, the stream site as a LocationOah, one evidence entry per condition met, the decision narrative.",
+  },
+  {
+    name: "StcClinicAlert",
+    id: "stc-clinic-alert",
+    resource: "Communication",
+    what: "Category alert, about a StcStreamRiskAlert, one clinic as recipient, the GroupOah cohort as subject.",
+  },
+  {
+    name: "StcClinicResponse",
+    id: "stc-clinic-response",
+    resource: "Communication",
+    what: "A reply to a StcClinicAlert (inResponseTo) with a coded action from the alert-response value set.",
+  },
+  {
+    name: "StcClinicAdvisory",
+    id: "stc-clinic-advisory",
+    resource: "Communication",
+    what: "Category instruction, sent by the StcAdvisorDevice, so model-written text is marked as such.",
+  },
+  { name: "StcAdvisorDevice", id: "stc-advisor-device", resource: "Device", what: "The language model as a named Device." },
+  {
+    name: "StcReportProvenance",
+    id: "stc-report-provenance",
+    resource: "Provenance",
+    what: "A citizen report and its photo as targets, with the reporter as author and the app as assembler.",
+  },
+  {
+    name: "StcAdvisoryProvenance",
+    id: "stc-advisory-provenance",
+    resource: "Provenance",
+    what: "The advisory model as author and the alert it was drafted from as the source.",
+  },
 ];
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -67,6 +124,9 @@ export default function StandardsPage() {
     "# Health alerts and the messages sent to clinics",
     `curl -s "${FHIR_URL}/DetectedIssue?_sort=-_lastUpdated"`,
     `curl -s "${FHIR_URL}/Communication?category=alert"`,
+    "",
+    "# Clinic replies, found by our profile",
+    `curl -s "${FHIR_URL}/Communication?_profile=${FHIR_URL}/StructureDefinition/stc-clinic-response"`,
     "",
     "# Everything about one site as a single Bundle",
     `curl -s ${API_URL}/sites/Loc-Almyros/bundle`,
@@ -110,7 +170,10 @@ export default function StandardsPage() {
                   <td className="px-3 py-2 font-mono text-xs">{row.resource}</td>
                   <td className="px-3 py-2">
                     {row.profile ? (
-                      <FhirLink href={`${OAH_SOURCE}/${row.profile.file}`}>{row.profile.name}</FhirLink>
+                      <span className="space-x-1.5">
+                        <FhirLink href={row.profile.href}>{row.profile.name}</FhirLink>
+                        <span className="text-xs text-muted-foreground">{row.profile.ours ? "ours" : "OAH"}</span>
+                      </span>
                     ) : (
                       <span className="text-muted-foreground">Core R4</span>
                     )}
@@ -122,8 +185,35 @@ export default function StandardsPage() {
         </div>
         <p className="text-sm text-muted-foreground">
           Indicators use codes from the OAH code system (<Code>temporarySystem-oah-eu</Code>) and UCUM units. Presence
-          readings (absent, present, abundant) and risk types use two small code systems published on the same server. Demo
-          clinics, cohorts and health figures carry the HL7 <Code>HTEST</Code> tag for synthetic data.
+          readings (absent, present, abundant), risk types and clinic responses use three small code systems of ours,
+          published on the same server with a value set each. Demo clinics, cohorts and health figures carry the HL7{" "}
+          <Code>HTEST</Code> tag for synthetic data.
+        </p>
+      </Section>
+
+      <Section id="profiles-heading" title="Our own profiles, built on the OAH IG">
+        <p>
+          The OAH Implementation Guide covers the stream: sites, citizen indicators, cohorts and health measures. It has
+          nothing yet for what happens next, so Stream-to-Clinic adds seven profiles for the alert, the messages to and from
+          clinics, the model-drafted advisory and data lineage. They are written in{" "}
+          <FhirLink href={STC_SOURCE}>FSH</FhirLink>, built with SUSHI with the OAH IG as a dependency (the alert&apos;s site
+          must be a <Code>LocationOah</Code>, the cohort a <Code>GroupOah</Code>), and loaded into the public FHIR server, so
+          each canonical URL below resolves.
+        </p>
+        <ul className="divide-y rounded-lg border">
+          {STC_PROFILES.map((p) => (
+            <li key={p.id} className="space-y-1 px-3 py-2.5">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <FhirLink href={`${FHIR_URL}/StructureDefinition/${p.id}`}>{p.name}</FhirLink>
+                <span className="font-mono text-xs text-muted-foreground">{p.resource}</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{p.what}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm text-muted-foreground">
+          Every alert, clinic message, reply, advisory and report lineage the API writes declares its profile in{" "}
+          <Code>meta.profile</Code>, so a partner can find them with <Code>_profile</Code> searches, as below.
         </p>
       </Section>
 
@@ -144,8 +234,12 @@ export default function StandardsPage() {
             site Bundle.
           </li>
           <li>
-            The official HL7 <Code>validator_cli</Code> checks them against FHIR 4.0.1 and the OAH profiles. Any error fails
-            the build.
+            Our own profiles are built from FSH on top of that, and CI checks that the definitions the server is seeded with
+            match a fresh build.
+          </li>
+          <li>
+            The official HL7 <Code>validator_cli</Code> checks the samples against FHIR 4.0.1, the OAH profiles and ours. Any
+            error fails the build.
           </li>
         </ol>
         <a href={VALIDATE_WORKFLOW} className="inline-block rounded focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">

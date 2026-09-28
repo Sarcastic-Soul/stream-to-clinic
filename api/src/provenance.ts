@@ -2,6 +2,7 @@
 // reported it, which app assembled it and when it was recorded, so a clinic acting on an alert
 // can trace the claim back to a person and a moment rather than to an anonymous row.
 import { fhir } from "./fhir.js";
+import { STC_PROFILES } from "./oah.js";
 
 const PARTICIPANT_TYPE = "http://terminology.hl7.org/CodeSystem/provenance-participant-type";
 const DATA_OPERATION = "http://terminology.hl7.org/CodeSystem/v3-DataOperation";
@@ -12,6 +13,7 @@ export function toProvenance(targets: string[], reporter: string, recorded: stri
   const agentType = (code: string, display: string) => ({ coding: [{ system: PARTICIPANT_TYPE, code, display }] });
   return {
     resourceType: "Provenance",
+    meta: { profile: [STC_PROFILES.reportProvenance] },
     target: targets.map((reference) => ({ reference })),
     recorded,
     activity: { coding: [{ system: DATA_OPERATION, code: "CREATE", display: "create" }] },

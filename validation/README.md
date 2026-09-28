@@ -1,18 +1,19 @@
 # FHIR profile validation
 
-Checks that the resources the API produces conform to the OneAquaHealth (OAH) IG profiles, using the official HL7 validator. CI runs it on every push or pull request that touches `api/` or `validation/` (`.github/workflows/validate-fhir.yml`) and fails on any validation error.
+Checks that the resources the API produces conform to the OneAquaHealth (OAH) IG profiles and to our own Stream-to-Clinic profiles (`ig/`), using the official HL7 validator. CI runs it on every push or pull request that touches `api/`, `ig/` or `validation/` (`.github/workflows/validate-fhir.yml`) and fails on any validation error.
 
 ## What it does
 
 1. `build-ig.sh` downloads the OAH IG source ([hl7-eu/oah](https://github.com/hl7-eu/oah)) at a pinned commit and builds it with SUSHI. The IG is a draft and is not published as a package, so it is built from source.
-2. `generate-samples.ts` runs the API's real code and writes the resources to `samples/generated/`:
+2. `build-stc-ig.sh` adds the built OAH IG to the local FHIR package cache (`~/.fhir/packages/hl7.eu.fhir.oah#0.1.0-ci-build`), then builds our own profiles in `ig/` with SUSHI, which depends on it. `export-definitions.mjs` writes the StructureDefinitions, CodeSystems and ValueSets (not the examples) to `api/src/stc-definitions.json`, which the API seeds into HAPI so their canonical URLs resolve. CI runs it and fails if the committed file differs from the fresh build, so after changing `ig/` run `./build-stc-ig.sh` and commit the file.
+3. `generate-samples.ts` runs the API's real code and writes the resources to `samples/generated/`:
    - `api/src/mapping.ts`: a citizen report Observation (`ObservationIndicatorsOah`) for every indicator, one per presence value for presence indicators. New indicators in `api/src/oah.ts` are picked up automatically.
-   - `api/src/seed.ts`: every resource in the seed transaction (`LocationOah` sites and parent Locations, `Organization`, `HealthcareService`, `GroupOah`, `ObservationHealthMeasureOah`, `CodeSystem`), with the synthetic citizen history cut down to one Observation per indicator.
-   - `api/src/alerts.ts` + `api/src/narrative.ts`: the `DetectedIssue` (with its step-by-step narrative in `detail`) and `Communication` for a raised algal-bloom alert (core R4 only; no OAH profile applies).
+   - `api/src/seed.ts`: every resource in the seed transaction (`LocationOah` sites and parent Locations, `Organization`, `HealthcareService`, `GroupOah`, `ObservationHealthMeasureOah`), with the synthetic citizen history cut down to one Observation per indicator.
+   - `api/src/alerts.ts` + `api/src/narrative.ts`: the `DetectedIssue` (with its step-by-step narrative in `detail`) and `Communication` for a raised algal-bloom alert (`StcStreamRiskAlert`, `StcClinicAlert`), and the other resources the API writes against our profiles (clinic reply, advisory with its Device and Provenance, report Provenance). Our definitions from the seed are left out; they are checked from the SUSHI build.
    - `api/src/photos.ts`: a report with a photo: `Binary`, `Media`, and the `ObservationIndicatorsOah` Observation whose `derivedFrom` points at the Media (fixed ids so samples are reproducible). The validator tries to fetch the Media's `content.url` from the public server and warns when it does not exist; that warning is expected.
    - The seed also contains the rest-hook `Subscription`, validated against core R4.
-   - `api/src/bundle.ts`: the site export (`GET /sites/:id/bundle`), a `collection` Bundle of the samples above (without the Binary, CodeSystems and Subscription), so every entry is validated again inside the Bundle.
-3. `validate.sh` runs `validator_cli` against FHIR 4.0.1 with the built IG on `samples/generated/` (and `samples/baseline/`, if present). The API's CodeSystems are loaded as definitions too, so presence and risk codes are checked. It prints each file's errors and warnings and exits non-zero if there is any error.
+   - `api/src/bundle.ts`: the site export (`GET /sites/:id/bundle`), a `collection` Bundle of the samples above (without the Binary and Subscription), so every entry is validated again inside the Bundle.
+4. `validate.sh` runs `validator_cli` against FHIR 4.0.1 with the built OAH IG and our IG (`ig/fsh-generated/resources`) on `samples/generated/`, on our IG itself (profiles, code systems, value sets and the FSH examples) and on `samples/baseline/`, if present. Presence, risk and response codes are checked against our code systems. It prints each file's errors and warnings and exits non-zero if there is any error.
 
 ## Run locally
 
@@ -21,10 +22,10 @@ Requires Node.js 22+, Java 21 (Temurin in CI) and about 1.5 GB of free memory.
 ```bash
 cd validation
 npm install
-npm test          # build-ig + generate + validate
+npm test          # build-ig + build-stc-ig + generate + validate
 ```
 
-The first run downloads the IG, its FHIR packages (into `~/.fhir/packages`) and the validator jar (~200 MB, into `.work/`); later runs reuse them. Run the steps on their own with `./build-ig.sh`, `npm run generate` and `./validate.sh`. The full validator output is in `.work/validation.log`.
+The first run downloads the IG, its FHIR packages (into `~/.fhir/packages`) and the validator jar (~200 MB, into `.work/`); later runs reuse them. Run the steps on their own with `./build-ig.sh`, `./build-stc-ig.sh`, `npm run generate` and `./validate.sh`. The full validator output is in `.work/validation.log`.
 
 Settings (environment variables):
 
@@ -55,5 +56,6 @@ The validator only checks the profiles a resource declares in `meta.profile`, so
 - Offline terminology (default): UCUM units and SNOMED/LOINC codes are not checked and show up as warnings. Codes from the OAH code system are checked, because that code system is part of the IG.
 - References are not resolved. The validator checks that `Observation.subject` points to a `Location`, but not that the Location exists or conforms to `LocationOah`.
 - Every sample gets a `dom-6` warning (no narrative `text`). This is a best-practice warning, not an error.
+- Our code systems warn of "multiple potential matches", because `ig/fsh-generated/resources` is both loaded as an IG and validated. Harmless.
 - The seeded health-measure baselines warn that an Observation should have a performer. `ObservationHealthMeasureOah` does not require one.
 - `hl7.fhir.r4.core` is seeded from hl7.org because SUSHI's registry download of it often fails.
