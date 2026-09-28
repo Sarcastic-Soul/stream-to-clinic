@@ -202,7 +202,7 @@ function Phone({
         </span>
       </figcaption>
       <div className="rounded-[2.9rem] bg-gradient-to-b from-slate-700 to-slate-900 p-2.5 shadow-2xl shadow-sky-950/25 ring-1 ring-black/10">
-        <div data-testid={testId} className="relative h-[700px] overflow-hidden rounded-[2.3rem] bg-background">
+        <div data-testid={testId} className="relative isolate h-[700px] overflow-hidden rounded-[2.3rem] bg-background">
           <div className="pointer-events-none absolute top-2 left-1/2 z-40 h-6 w-28 -translate-x-1/2 rounded-full bg-slate-900" aria-hidden />
           {overlay && <div className="absolute inset-x-0 top-8 z-50">{overlay}</div>}
           <div className="h-full overflow-y-auto overscroll-contain pt-9">{children}</div>
