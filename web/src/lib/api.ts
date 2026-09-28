@@ -2,6 +2,8 @@ import type { AcknowledgeInput, AlertFilter, AlertSummary, Api, LiveAlertHandler
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://oneaquahealth.duckdns.org").replace(/\/$/, "");
 export const FHIR_URL = `${API_URL}/fhir`;
+// Remote MCP server serving the same read-only tools as the agent.
+export const MCP_URL = `${API_URL}/mcp`;
 export const MOCK = process.env.NEXT_PUBLIC_API_MOCK === "1";
 export const REPO_URL = "https://github.com/Sarcastic-Soul/stream-to-clinic";
 
@@ -78,6 +80,7 @@ const httpApi: Api = {
   subscribePush: (clinicId, subscription) => request("/push/subscriptions", json({ clinicId, subscription })),
   unsubscribePush: (endpoint) => request("/push/unsubscribe", json({ endpoint })),
   testPush: (endpoint) => request("/push/test", json({ endpoint })),
+  askAgent: (question) => request("/agent/ask", json({ question })),
 };
 
 function json(body: unknown): RequestInit {
@@ -116,6 +119,7 @@ export const api: Api = {
   subscribePush: (clinicId, subscription) => client().then((c) => c.subscribePush(clinicId, subscription)),
   unsubscribePush: (endpoint) => client().then((c) => c.unsubscribePush(endpoint)),
   testPush: (endpoint) => client().then((c) => c.testPush(endpoint)),
+  askAgent: (question) => client().then((c) => c.askAgent(question)),
 };
 
 export const fhirObservationUrl = (id: string) => `${FHIR_URL}/Observation/${enc(id)}`;

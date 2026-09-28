@@ -103,3 +103,28 @@ test("a report on one phone reaches the clinic's phone live, with the FHIR steps
   await expect(page.getByTestId("step-communication")).toHaveAttribute("data-state", "done");
   await expect(page.locator("#loop-timer")).toHaveAttribute("data-state", "done");
 });
+
+test("the agent answers a question from the FHIR data and shows every query it ran", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Ask", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Ask the data" })).toBeVisible();
+  await expect(page.locator("#mcp-url")).toHaveText(/\/mcp$/);
+
+  await page.locator("#suggestion-1").click();
+  await expect(page.getByTestId("agent-loading")).toBeVisible();
+
+  const answer = page.locator("#agent-answer");
+  await expect(answer.getByText(/active alert/).first()).toBeVisible();
+  await expect(answer.getByText(/demo-model/)).toBeVisible();
+
+  // Each step names its tool and links the FHIR search it made.
+  const steps = page.getByTestId("agent-step");
+  await expect(steps).toHaveCount(2);
+  await expect(steps.first()).toContainText("list_sites");
+  await expect(steps.nth(1).getByRole("link")).toHaveAttribute("href", /\/fhir\/DetectedIssue\?/);
+
+  // A typed question goes through the same path.
+  await page.locator("#agent-question").fill("Is any stream losing oxygen?");
+  await page.locator("#agent-ask").click();
+  await expect(steps.first()).toContainText("get_trends");
+});

@@ -16,6 +16,7 @@ const LINKS = [
   { href: "/clinic", key: "nav.clinic" },
   { href: "/loop", key: "nav.loop", wide: true },
   { href: "/trends", key: "nav.trends", wide: true },
+  { href: "/ask", key: "nav.ask", wide: true },
   { href: "/standards", key: "nav.standards" },
 ] as const;
 
