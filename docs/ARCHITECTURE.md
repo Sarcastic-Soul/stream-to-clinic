@@ -52,7 +52,7 @@ HAPI ── rest-hook Subscription (internal network) ──► API /hooks/obser
 | Advisory model | Google Gemini API (`GEMINI_API_KEY`, default model `gemini-3.5-flash-lite`) | — | Free tier from Google AI Studio; the key lives in the server env file, never in the repo. Optional: with no key the endpoint answers 503 and everything else is unchanged. The model is given one alert's own reasons and narrative and asked to rewrite them; it never sets or changes a risk level. Its output is stored as a `Communication` sent by a `Device`, with a `Provenance` naming that device as author |
 | Browser tests | Playwright | 1.63 | Five journeys (report, clinic reply, advisory, trends, map) run in CI against a build with `NEXT_PUBLIC_API_MOCK=1`, so they never depend on the deployed API |
 | Weather | Open-Meteo API | — | Free for non-commercial use, no key; CC BY 4.0 attribution ("Weather data by Open-Meteo.com"). Hourly rainfall, cached 1 h per site |
-| Validation (planned) | SUSHI + HL7 `validator_cli` | validator 6.10.x | Builds the OAH IG from source and validates resources in CI |
+| Profiles and validation | SUSHI + HL7 `validator_cli` | SUSHI 3.20.1, validator 6.10.4 | Builds the OAH IG from source, then our own profiles in `ig/` on top of it, and validates the API's resources against both in CI |
 | Host OS | Ubuntu Server | 24.04 LTS (arm64) | |
 | Containers | Docker Engine + Compose | 29.x / 5.x | |
 
@@ -61,6 +61,7 @@ HAPI ── rest-hook Subscription (internal network) ──► API /hooks/obser
 - **FHIR version:** R4 (4.0.1), matching the OAH IG.
 - **OAH IG:** [hl7-eu/oah](https://github.com/hl7-eu/oah), canonical `http://hl7.eu/fhir/ig/oah`, draft, not on packages.fhir.org (build from source).
 - **Profiles used:** `ObservationIndicatorsOah`, `ObservationHealthMeasureOah`, `LocationOah`, `GroupOah`.
+- **Our own profiles** (`ig/`, FSH built with SUSHI, depending on `hl7.eu.fhir.oah`): for what the OAH IG does not cover. Canonical `https://oneaquahealth.duckdns.org/fhir`, the public FHIR server, so every definition resolves at `/fhir/StructureDefinition/<id>`, `/fhir/CodeSystem/<id>` and `/fhir/ValueSet/<id>`. Profiles: `stc-stream-risk-alert` (DetectedIssue), `stc-clinic-alert`, `stc-clinic-response`, `stc-clinic-advisory` (Communication), `stc-advisor-device` (Device), `stc-report-provenance`, `stc-advisory-provenance` (Provenance). Code systems, each with a value set of the same id: `presence`, `water-health-risk`, `alert-response`. `validation/build-stc-ig.sh` builds them and writes `api/src/stc-definitions.json`, which the seed loads into HAPI; CI fails if that file differs from a fresh build. HAPI does not validate writes against them (no request validation in `fhir/application.yaml`); CI does.
 - **Codes:** OAH temporary code system `http://hl7.eu/fhir/ig/oah/CodeSystem/temporarySystem-oah-eu`; units in UCUM.
 - Code constants live in `api/src/oah.ts`; report mapping in `api/src/mapping.ts`.
 
@@ -75,8 +76,11 @@ HAPI ── rest-hook Subscription (internal network) ──► API /hooks/obser
 | Clinic serves site | `HealthcareService` | `providedBy` the clinic, `coverageArea` the sites it serves (standard R4, no extension) |
 | District cohort | `Group` (`GroupOah`) | `cohort-<siteId>`: residents living near a site (IG "Living place" characteristic) |
 | Health baseline | `Observation` (`ObservationHealthMeasureOah`) | OAH codes `gastrointestinal`, `campylobacter`; subject = site, focus = cohort, previous calendar year |
-| Alert | `DetectedIssue` | Identifier `…/sid/alert` = `<siteId>:<risk>` (one active issue per site and risk); `code` from our `CodeSystem/water-health-risk`; `implicated` = site; one `evidence` entry per reason, with `detail` → triggering Observations; `mitigation.action.text` = what clinicians should watch for; `detail` = a summary line, then the numbered step-by-step narrative ("How the risk engine decided:"), which `AlertSummary.narrative` is parsed from. Active until `identifiedPeriod.end` is set, which happens when a re-evaluation no longer fires the rule |
-| Clinic notification | `Communication` | Category `alert`, `about` → DetectedIssue, `recipient` → clinic, `subject` → district cohort. Sent once per clinic when the issue is raised; none for low oxygen (environmental only) |
+| Alert | `DetectedIssue` (`StcStreamRiskAlert`) | Identifier `…/sid/alert` = `<siteId>:<risk>` (one active issue per site and risk); `code` from our `CodeSystem/water-health-risk`; `implicated` = site; one `evidence` entry per reason, with `detail` → triggering Observations; `mitigation.action.text` = what clinicians should watch for; `detail` = a summary line, then the numbered step-by-step narrative ("How the risk engine decided:"), which `AlertSummary.narrative` is parsed from. Active until `identifiedPeriod.end` is set, which happens when a re-evaluation no longer fires the rule |
+| Clinic notification | `Communication` (`StcClinicAlert`) | Category `alert`, `about` → DetectedIssue, `recipient` → clinic, `subject` → district cohort. Sent once per clinic when the issue is raised; none for low oxygen (environmental only) |
+| Clinic reply | `Communication` (`StcClinicResponse`) | `inResponseTo` → the clinic notification, `topic` from our `CodeSystem/alert-response` |
+| Plain-language advisory | `Communication` (`StcClinicAdvisory`) + `Device` (`StcAdvisorDevice`) + `Provenance` (`StcAdvisoryProvenance`) | Category `instruction`, sent by the model's Device; the Provenance names the Device as author and the alert as source |
+| Report lineage | `Provenance` (`StcReportProvenance`) | Targets the Observation (and its photo `Media`); reporter as author, the app as assembler |
 | Observation trigger | `Subscription` | `citizen-observations`: rest-hook, criteria `Observation?_profile=…/observation-indicators-oah`, payload `application/fhir+json`, endpoint `http://api:3000/hooks/observation` (internal Docker network) |
 
 Seed data (`api/src/seed.ts`) is PUTs with fixed ids, applied on every API start in transactions of 150 entries (idempotent; HAPI skips unchanged resources, and a chunk is safe to retry). Synthetic resources carry the `HTEST` tag. The seed includes four weeks of daily citizen history per site, dated relative to the start time — one reach drifts (warming, losing oxygen, rising conductivity) so the trend view has something real to show — then every site is evaluated once.
@@ -94,6 +98,7 @@ A site is re-evaluated on two paths:
 | Path | Contents |
 |---|---|
 | `web/` | Next.js frontend |
+| `ig/` | Our FHIR profiles, code systems and value sets in FSH (`input/fsh/`), built with SUSHI by `validation/build-stc-ig.sh` |
 | `api/` | Fastify API: `src/server.ts` routes, `src/fhir.ts` client, `src/oah.ts` codes, `src/mapping.ts` report mapping, `src/store.ts` site/clinic reads, `src/seed.ts` demo data, `src/rules.ts` risk rules, `src/weather.ts` Open-Meteo, `src/alerts.ts` DetectedIssue/Communication, `src/narrative.ts` alert narrative, `src/photos.ts` report photos (Media/Binary); `test/` unit tests (`npm test`) |
 | `fhir/application.yaml` | HAPI overrides (Postgres, R4, server address, subscriptions, CORS) |
 | `deploy/compose.yml` | Production stack: postgres, hapi, api (memory limits set) |
