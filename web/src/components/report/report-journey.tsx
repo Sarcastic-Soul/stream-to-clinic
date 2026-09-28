@@ -124,7 +124,7 @@ export function ReportJourneyView({ id }: { id: string }) {
             <h2 id={`alert-${alert.id}`} className="font-semibold">
               {alert.title}
             </h2>
-            <RiskBadge level={alert.level} className={cn(alert.status === "closed" && "opacity-60 grayscale")} />
+            <RiskBadge level={alert.level} className={cn(alert.status === "closed" && "grayscale")} />
             <Link href={`/alerts/${encodeURIComponent(alert.id)}`} className="ml-auto text-sm font-medium underline underline-offset-2">
               {resourceLabel(alert.fhir.detectedIssue)}
             </Link>

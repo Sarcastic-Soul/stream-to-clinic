@@ -109,7 +109,7 @@ export function LiveLoop({ siteId, clinicId: requestedClinic }: { siteId: string
               ) : run ? (
                 <LoaderCircleIcon className="size-10 animate-spin text-sky-500" aria-hidden />
               ) : (
-                <span className="text-muted-foreground/40">0.0 s</span>
+                <span className="text-muted-foreground">0.0 s</span>
               )}
             </div>
             <p className="mt-2 text-sm text-muted-foreground" aria-live="polite">
@@ -242,7 +242,7 @@ function Step({
         {state === "active" && <span className="absolute inset-0 animate-ping rounded-2xl border-2 border-sky-400 opacity-50" aria-hidden />}
         {state === "done" ? <CheckIcon className="size-6" /> : icon}
       </span>
-      <div className={cn("flex min-w-0 flex-1 items-center gap-2 py-3 transition-opacity duration-500", (state === "idle" || state === "skipped") && "opacity-50")}>
+      <div className={cn("flex min-w-0 flex-1 items-center gap-2 py-3 transition-opacity duration-500", (state === "idle" || state === "skipped") && "text-muted-foreground")}>
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{title}</p>
           {note && <p className="text-sm text-muted-foreground">{note}</p>}
