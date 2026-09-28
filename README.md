@@ -60,6 +60,7 @@ Built for the [OneAquaHealth IEEE Global Hackathon](https://oneaquahealth-ieee-h
 | 🔁 **Closed loop** | Clinics answer an alert in one click; the reply is a FHIR `Communication` linked to the original, so the environmental side sees which warnings led to action |
 | ✍️ **AI that only writes, never decides** | A model rewrites an alert as a notice for the clinic desk, from the engine's own reasons; the draft is a `Communication` sent by a `Device` with a `Provenance` naming it, so machine-written text stays marked as such |
 | ✍️ **AI that writes, never decides** | A model rewrites an alert as a notice for the clinic desk, from the engine's own reasons only; the draft is a `Communication` sent by a `Device` with a `Provenance` naming it, so machine-written text stays marked as such |
+| 🤖 **Ask the data** | An AI agent answers questions like "which stream is losing oxygen?" by querying the FHIR server itself, read-only, and shows every query it ran. The same tools are a public MCP server |
 | 🧾 **Traceable** | Every citizen report carries a `Provenance`: who reported it, which app assembled it, when it was recorded |
 | 🗺️ **Readable map** | Colourful basemap, place names in one language, quieter country labels, nearby sites clustered with a count |
 | 🌓 **Light / dark / system** | Theme toggle applied before the first paint, no flash |
@@ -78,6 +79,26 @@ Caddy (oneaquahealth.duckdns.org, automatic HTTPS)
                             • maps reports to OAH profiles │ writes │ rest-hook Subscription
                             • risk engine + Open-Meteo ────┘        │ (new Observations,
                             • DetectedIssue + Communication ◄───────┘  internal network)
+```
+
+## Ask the data, or bring your own assistant
+
+The **Ask** page sends a question to `POST /agent/ask`. A Gemini model answers it with six read-only
+tools (sites, clinics, alerts, trends, a site's readings, and a guarded FHIR search), and the page
+lists each tool call with links to the exact `/fhir` searches behind the answer. It gives no
+clinical advice and cannot change anything.
+
+The same tools are an [MCP](https://modelcontextprotocol.io) server, so any MCP client can use them
+with its own model. Add this URL as a remote MCP server (Streamable HTTP, no sign-in):
+
+```
+https://oneaquahealth.duckdns.org/mcp
+```
+
+In Claude, that is Settings → Connectors → Add custom connector. In Claude Code:
+
+```bash
+claude mcp add --transport http stream-to-clinic https://oneaquahealth.duckdns.org/mcp
 ```
 
 ## FHIR resource model

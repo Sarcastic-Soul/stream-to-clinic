@@ -26,7 +26,9 @@ Caddy on the EC2 host (oneaquahealth.duckdns.org, Let's Encrypt)
                                   ├─ maps citizen reports (and photos, and Provenance) to FHIR
                                   ├─ risk engine (+ Open-Meteo weather)
                                   ├─ writes DetectedIssue / Communication to HAPI
-                                  └─ announces new alerts: SSE to open clinic pages, web push to clinic devices
+                                  ├─ announces new alerts: SSE to open clinic pages, web push to clinic devices
+                                  ├─ POST /agent/ask: Gemini with read-only FHIR tools
+                                  └─ POST /mcp: the same tools for any MCP client
 HAPI ── rest-hook Subscription (internal network) ──► API /hooks/observation
 ```
 
@@ -52,7 +54,10 @@ HAPI ── rest-hook Subscription (internal network) ──► API /hooks/obser
 | Reverse proxy / TLS | Caddy | 2.x | Automatic HTTPS; one site file per project |
 | Web push | `web-push` | 3.6 | VAPID keys generated on the host by `deploy.sh` on first deploy and kept in the server env file. Subscriptions (device addresses, not health data) are a JSON file on the API's `apidata` volume, never on the public FHIR server. Endpoints must be on a browser push service, so the server cannot be pointed at other hosts |
 | Advisory model | Google Gemini API (`GEMINI_API_KEY`, default model `gemini-3.5-flash-lite`) | — | Free tier from Google AI Studio; the key lives in the server env file, never in the repo. Optional: with no key the endpoint answers 503 and everything else is unchanged. The model is given one alert's own reasons and narrative and asked to rewrite them; it never sets or changes a risk level. Its output is stored as a `Communication` sent by a `Device`, with a `Provenance` naming that device as author |
-| Browser tests | Playwright | 1.63 | Five journeys (report, clinic reply, advisory, trends, map) run in CI against a build with `NEXT_PUBLIC_API_MOCK=1`, so they never depend on the deployed API |
+| FHIR agent | Gemini function calling over REST (same key and model as the advisory) | — | `POST /agent/ask`. Six read-only tools (`src/agent-tools.ts`): five app-level reads and one guarded FHIR search limited to our resource types, a list of search parameters and `_count` ≤ 20. At most 6 tool rounds, 55 s in total; the model's turns are sent back unchanged so Gemini 3 thought signatures survive. Every step returns the public `/fhir` URLs it queried, and the page shows them. Per-client limit of 5 questions a minute and 300 a day, and the same question is answered from a 10-minute cache, to stay inside the free tier |
+| MCP server | `@modelcontextprotocol/sdk` | 1.30 | `POST /mcp`, Streamable HTTP transport in stateless mode with JSON responses (a fresh server per request, so nothing is kept between calls). Exposes the agent's tools, all annotated read-only, so any MCP client can bring its own model. Needs no key |
+| Schema validation (agent tools) | zod | 4.x | Tool inputs; `z.toJSONSchema` produces the Gemini function declarations, and the MCP SDK takes the same shapes |
+| Browser tests | Playwright | 1.63 | Seven journeys (report, clinic reply, advisory, trends, map, live loop, agent) run in CI against a build with `NEXT_PUBLIC_API_MOCK=1`, so they never depend on the deployed API |
 | Weather | Open-Meteo API | — | Free for non-commercial use, no key; CC BY 4.0 attribution ("Weather data by Open-Meteo.com"). Hourly rainfall, cached 1 h per site |
 | Validation (planned) | SUSHI + HL7 `validator_cli` | validator 6.10.x | Builds the OAH IG from source and validates resources in CI |
 | Host OS | Ubuntu Server | 24.04 LTS (arm64) | |
@@ -98,7 +103,7 @@ A site is re-evaluated on two paths:
 | Path | Contents |
 |---|---|
 | `web/` | Next.js frontend |
-| `api/` | Fastify API: `src/server.ts` routes, `src/fhir.ts` client, `src/oah.ts` codes, `src/mapping.ts` report mapping, `src/store.ts` site/clinic reads, `src/seed.ts` demo data, `src/rules.ts` risk rules, `src/weather.ts` Open-Meteo, `src/alerts.ts` DetectedIssue/Communication, `src/narrative.ts` alert narrative, `src/photos.ts` report photos (Media/Binary); `test/` unit tests (`npm test`) |
+| `api/` | Fastify API: `src/server.ts` routes, `src/fhir.ts` client, `src/oah.ts` codes, `src/mapping.ts` report mapping, `src/store.ts` site/clinic reads, `src/seed.ts` demo data, `src/rules.ts` risk rules, `src/weather.ts` Open-Meteo, `src/alerts.ts` DetectedIssue/Communication, `src/narrative.ts` alert narrative, `src/photos.ts` report photos (Media/Binary), `src/agent-tools.ts` read-only agent tools, `src/agent.ts` Gemini tool loop and limits, `src/mcp.ts` MCP server; `test/` unit tests (`npm test`) |
 | `fhir/application.yaml` | HAPI overrides (Postgres, R4, server address, subscriptions, CORS) |
 | `deploy/compose.yml` | Production stack: postgres, hapi, api (memory limits set; `apidata` volume at `/data` for push subscriptions) |
 | `deploy/compose.local.yml` | Local override publishing ports 8080 (HAPI) and 3001 (API) |
