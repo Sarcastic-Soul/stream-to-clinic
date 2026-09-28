@@ -52,7 +52,7 @@ Every step runs against the live site, so the data has to be in a known state fi
    ```
    Alerts made this way say "demo weather override" in their reasons, and the video shows that line as it is.
 2. **Almyros reset.** The plan's setup step posts three reports to Almyros before recording (filamentous algae absent, mosquito larvae absent, water 27.4 °C). That closes any bloom alert left from an earlier take and leaves warm water in place, so Maria's single "Abundant" report raises a fresh alert.
-3. **Agent and advisory.** Both need `GEMINI_API_KEY` on the host. `GEMINI_MODEL` can list several models; a model the free tier reports as busy hands the request to the next one.
+3. **Agent and advisory.** Both call Amazon Bedrock with the host's IAM role; no key is needed. `BEDROCK_MODEL` lists the models in order (default GLM 4.7 Flash, then Ministral 3 8B), and a throttled model hands the request to the next one. Together they allow 100 model requests a day (`LLM_DAILY_LIMIT`), and a restart of the API resets the count.
 4. **Record, check, build:**
    ```bash
    PIPELINE=~/Code/Hackathons/demo-video-pipeline

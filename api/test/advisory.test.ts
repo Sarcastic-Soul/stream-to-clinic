@@ -5,10 +5,13 @@ import {
   ADVISOR_DEVICE_ID,
   advisorDevice,
   buildPrompt,
+  draftAdvisory,
   toAdvisory,
   toAdvisoryCommunication,
   toAdvisoryProvenance,
 } from "../src/advisory.js";
+import { config } from "../src/config.js";
+import type { ConverseRequest, ConverseResponse } from "../src/llm.js";
 
 const alert: AlertSummary = {
   id: "1225",
@@ -42,16 +45,16 @@ test("an environmental-only alert says so instead of leaving the line blank", ()
 });
 
 test("the advisory is a Communication sent by the model Device, about the alert", () => {
-  const comm = toAdvisoryCommunication(alert, "Text of the notice.", "gemini-test", "2026-09-20T10:00:00Z");
+  const comm = toAdvisoryCommunication(alert, "Text of the notice.", "test-model", "2026-09-20T10:00:00Z");
   assert.equal(comm.status, "completed");
   assert.equal(comm.sender?.reference, `Device/${ADVISOR_DEVICE_ID}`);
-  assert.equal(comm.sender?.display, "gemini-test");
+  assert.equal(comm.sender?.display, "test-model");
   assert.deepEqual(comm.about, [{ reference: "DetectedIssue/1225" }]);
   assert.equal(comm.payload?.[0]?.contentString, "Text of the notice.");
 });
 
 test("machine-written text carries a Provenance naming the Device as author", () => {
-  const provenance = toAdvisoryProvenance("c-1", alert, "gemini-test", "2026-09-20T10:00:00Z");
+  const provenance = toAdvisoryProvenance("c-1", alert, "test-model", "2026-09-20T10:00:00Z");
   assert.deepEqual(provenance.target, [{ reference: "Communication/c-1" }]);
   assert.equal(provenance.agent[0].who.reference, `Device/${ADVISOR_DEVICE_ID}`);
   assert.equal(provenance.agent[0].type?.coding?.[0]?.code, "author");
@@ -59,15 +62,35 @@ test("machine-written text carries a Provenance naming the Device as author", ()
 });
 
 test("only a Communication from the model Device reads back as an advisory", () => {
-  const comm = { ...toAdvisoryCommunication(alert, "Text.", "gemini-test", "2026-09-20T10:00:00Z"), id: "c-1" };
+  const comm = { ...toAdvisoryCommunication(alert, "Text.", "test-model", "2026-09-20T10:00:00Z"), id: "c-1" };
   assert.equal(toAdvisory(comm)?.text, "Text.");
   assert.equal(toAdvisory({ ...comm, sender: { reference: "Organization/clinic-almyros" } }), undefined);
   assert.equal(toAdvisory({ ...comm, payload: [] }), undefined);
 });
 
 test("the Device says what it does and what it does not decide", () => {
-  const device = advisorDevice("gemini-test");
+  const device = advisorDevice("test-model");
   assert.equal(device.id, ADVISOR_DEVICE_ID);
-  assert.match(device.deviceName?.[0]?.name ?? "", /gemini-test/);
+  assert.match(device.deviceName?.[0]?.name ?? "", /test-model/);
   assert.match(device.note?.[0]?.text ?? "", /deterministic rule engine/);
+});
+
+test("the draft comes from the first model that answers, with the disclaimer added", async () => {
+  config.bedrockModels = ["model-busy", "model-free"];
+  const asked: string[] = [];
+  const send = async (request: ConverseRequest) => {
+    asked.push(request.modelId!);
+    if (request.modelId === "model-busy") throw Object.assign(new Error("busy"), { name: "ThrottlingException" });
+    return { output: { message: { role: "assistant", content: [{ text: " Algae seen at Almyros. " }] } }, $metadata: {} } as ConverseResponse;
+  };
+  const draft = await draftAdvisory(alert, send);
+  assert.deepEqual(asked, ["model-busy", "model-free"]);
+  assert.equal(draft.model, "model-free");
+  assert.equal(draft.text, "Algae seen at Almyros.\n\nDemo heuristic, not clinical guidance.");
+
+  // A request the model rejects is not retried.
+  const rejected = async () => {
+    throw Object.assign(new Error("bad"), { name: "AccessDeniedException" });
+  };
+  await assert.rejects(draftAdvisory(alert, rejected), /AccessDeniedException/);
 });

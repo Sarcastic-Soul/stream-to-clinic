@@ -86,7 +86,7 @@ Caddy (oneaquahealth.duckdns.org, automatic HTTPS)
 
 ## Ask the data, or bring your own assistant
 
-The **Ask** page sends a question to `POST /agent/ask`. A Gemini model answers it with six read-only
+The **Ask** page sends a question to `POST /agent/ask`. A model on Amazon Bedrock (GLM 4.7 Flash) answers it with six read-only
 tools (sites, clinics, alerts, trends, a site's readings, and a guarded FHIR search), and the page
 lists each tool call with links to the exact `/fhir` searches behind the answer. It gives no
 clinical advice and cannot change anything.

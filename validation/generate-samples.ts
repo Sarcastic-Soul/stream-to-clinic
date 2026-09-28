@@ -91,13 +91,13 @@ function alertResources(): fhir4.Resource[] {
     ...toAdvisoryCommunication(
       summary!,
       "Citizen volunteers have reported abundant filamentous algae at the Almyros monitoring reach, in warm, dry weather.\n\nAsk anyone who has been in or near the water about skin irritation, rashes, or stomach upset over the past few days, and note when they were last in contact with the stream.\n\nYou can tell callers to keep out of the water and to keep children and dogs away from it until the algae clear.\n\nDemo heuristic, not clinical guidance.",
-      "gemini-sample",
+      "zai.glm-4.7-flash",
       NOW.toISOString(),
     ),
     id: "alert-algal-bloom-advisory",
   };
   const advisoryProvenance = {
-    ...toAdvisoryProvenance(advisory.id, summary!, "gemini-sample", NOW.toISOString()),
+    ...toAdvisoryProvenance(advisory.id, summary!, "zai.glm-4.7-flash", NOW.toISOString()),
     id: "advisory-provenance",
   };
   return [issue, communication, acknowledgement, advisory, advisoryProvenance];

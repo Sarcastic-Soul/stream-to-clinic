@@ -314,7 +314,7 @@ export function seedBundle(now = new Date()): fhir4.Bundle {
     ...cohorts(),
     ...baselines(now.getUTCFullYear() - 1),
     ...history(now),
-    tagged(advisorDevice(config.geminiModels[0])),
+    tagged(advisorDevice(config.bedrockModels[0] ?? "not configured")),
     subscription(),
   ];
   return {

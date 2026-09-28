@@ -13,6 +13,7 @@ import { RecentIds } from "./recent.js";
 import { highestLevel } from "./rules.js";
 import { adviseOnAlert, advisoryEnabled, loadAdvisory } from "./advisory.js";
 import { AgentError, AgentGuard, agentEnabled, askAgent } from "./agent.js";
+import { DAILY_LIMIT_MESSAGE, llmDailyLimit } from "./llm.js";
 import { registerMcp } from "./mcp.js";
 import { registerSmart, smartUser } from "./smart.js";
 import { clampDays, loadTrends, TREND_DAYS } from "./trends.js";
@@ -427,6 +428,7 @@ app.post<{ Body: { question: string } }>(
     if (!agentEnabled()) return reply.code(503).send({ error: "The agent model is not configured on this server" });
     const refusal = agentGuard.admit(clientOf(req));
     if (refusal) return reply.code(429).send({ error: refusal });
+    if (!llmDailyLimit.take()) return reply.code(429).send({ error: DAILY_LIMIT_MESSAGE });
     try {
       const answer = await askAgent(question);
       agentGuard.remember(answer);

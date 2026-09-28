@@ -20,15 +20,18 @@ export const config = {
   weatherOverride: process.env.WEATHER_OVERRIDE
     ? (JSON.parse(process.env.WEATHER_OVERRIDE) as { rain24h: number; rain7d: number })
     : undefined,
-  // Optional: key for the plain-language advisory (Google AI Studio free tier). Unset on a server
-  // means the advisory endpoint answers 503 and everything else works as before.
-  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  // Models to try in order, comma-separated. The free tier sometimes answers "high demand" (503) or
-  // hangs for one model while another is fine, so a busy model hands the question to the next.
-  geminiModels: (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite,gemini-3.5-flash-lite,gemini-3.6-flash,gemini-3.7-flash,gemini-flash-latest")
+  // Language models on Amazon Bedrock, for the plain-language advisory and the agent. Requests are
+  // signed with the host's IAM role (or local AWS credentials in development); no key is stored.
+  bedrockRegion: process.env.BEDROCK_REGION || "us-east-1",
+  // Model IDs to try in order, comma-separated: a model that is throttled or unavailable hands the
+  // request to the next. BEDROCK_MODEL=off turns both features off.
+  bedrockModels: (process.env.BEDROCK_MODEL || "zai.glm-4.7-flash,mistral.ministral-3-8b-instruct")
     .split(",")
     .map((m) => m.trim())
-    .filter(Boolean),
+    .filter((m) => m && m !== "off"),
+  // Model-backed requests allowed per UTC day across the whole API (agent questions plus advisory
+  // drafts), so a public demo cannot run up the AWS bill. Cached answers do not count.
+  llmDailyLimit: Number(process.env.LLM_DAILY_LIMIT) || 100,
   // Optional: VAPID keys for web push to clinic devices (`npx web-push generate-vapid-keys`).
   // Unset means push is off; open clinic pages still get alerts over Server-Sent Events.
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",

@@ -1,9 +1,11 @@
-// Question answering over the Stream-to-Clinic FHIR data. A language model (Gemini, function
-// calling) decides which read-only tools to call, and answers only from what they return. Every
-// tool call is kept and sent back with the answer, including the public FHIR query behind it, so
-// the answer can be checked against the data rather than trusted.
+// Question answering over the Stream-to-Clinic FHIR data. A language model on Amazon Bedrock (tool
+// use through the Converse API) decides which read-only tools to call, and answers only from what
+// they return. Every tool call is kept and sent back with the answer, including the public FHIR
+// query behind it, so the answer can be checked against the data rather than trusted.
+import type { ContentBlock, Message, Tool } from "@aws-sdk/client-bedrock-runtime";
 import { config } from "./config.js";
 import { TOOLS, TOOL_NAMES, ToolInputError, inputJsonSchema, runTool, type ToolResult } from "./agent-tools.js";
+import { converse as bedrockConverse, isBusy, isTimeout, llmEnabled, replyText, type Converse } from "./llm.js";
 
 export const MAX_ROUNDS = 6;
 const MAX_CALLS_PER_ROUND = 4;
@@ -39,7 +41,7 @@ export class AgentError extends Error {
   }
 }
 
-export const agentEnabled = () => Boolean(config.geminiApiKey);
+export const agentEnabled = llmEnabled;
 
 export function systemPrompt(today: string): string {
   return [
@@ -60,32 +62,19 @@ export function systemPrompt(today: string): string {
   ].join("\n");
 }
 
-export function functionDeclarations() {
+export function toolSpecs(): Tool[] {
   return TOOL_NAMES.map((name) => ({
-    name,
-    description: TOOLS[name].description,
-    parametersJsonSchema: inputJsonSchema(name),
+    toolSpec: {
+      name,
+      description: TOOLS[name].description,
+      // The SDK types the schema as a DocumentType; ours is plain JSON Schema.
+      inputSchema: { json: inputJsonSchema(name) as never },
+    },
   }));
 }
 
-interface Part {
-  text?: string;
-  thought?: boolean;
-  functionCall?: { name: string; args?: Record<string, unknown>; id?: string };
-  functionResponse?: { name: string; id?: string; response: Record<string, unknown> };
-  [key: string]: unknown;
-}
-interface Content {
-  role: "user" | "model";
-  parts: Part[];
-}
-interface GeminiResponse {
-  candidates?: { content?: Content; finishReason?: string }[];
-  promptFeedback?: { blockReason?: string };
-}
-
 export interface AgentDeps {
-  fetch?: typeof fetch;
+  converse?: Converse;
   runTool?: (name: string, args: unknown) => Promise<ToolResult>;
   now?: () => Date;
   /** Pause before the second pass through the models. */
@@ -98,24 +87,16 @@ function clip(data: unknown): unknown {
   return { truncated: true, json: `${text.slice(0, TOOL_RESULT_CHARS)}…` };
 }
 
-const answerText = (content: Content | undefined) =>
-  (content?.parts ?? [])
-    .filter((p) => typeof p.text === "string" && !p.thought)
-    .map((p) => p.text)
-    .join("")
-    .trim();
-
 export async function askAgent(question: string, deps: AgentDeps = {}): Promise<AgentAnswer> {
-  const { geminiApiKey, geminiModels } = config;
-  if (!geminiApiKey || !geminiModels.length) throw new AgentError("The agent model is not configured on this server", 503);
+  const models = config.bedrockModels;
+  if (!models.length) throw new AgentError("The agent model is not configured on this server", 503);
   const deadline = Date.now() + TOTAL_TIMEOUT_MS;
-  // A busy model hands the whole question to the next one: thought signatures belong to the model
-  // that wrote them, so a conversation cannot switch models halfway.
+  // A busy model hands the whole question to the next one, so one conversation stays with one model.
   // Busy spells are short, so after one pass through the list it tries once more.
   let busy: AgentError | undefined;
   for (let pass = 0; pass < 2; pass++) {
     if (pass) await new Promise((resolve) => setTimeout(resolve, deps.retryPauseMs ?? 1500));
-    for (const model of geminiModels) {
+    for (const model of models) {
       if (Date.now() >= deadline) throw new AgentError("The agent took too long to answer", 504);
       try {
         return await askModel(model, question, deadline, deps);
@@ -128,98 +109,84 @@ export async function askAgent(question: string, deps: AgentDeps = {}): Promise<
   throw busy!;
 }
 
-async function askModel(geminiModel: string, question: string, deadline: number, deps: AgentDeps): Promise<AgentAnswer> {
-  const { geminiApiKey } = config;
-  const doFetch = deps.fetch ?? fetch;
+async function askModel(modelId: string, question: string, deadline: number, deps: AgentDeps): Promise<AgentAnswer> {
+  const send = deps.converse ?? bedrockConverse;
   const run = deps.runTool ?? runTool;
   const now = deps.now ?? (() => new Date());
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
-  const contents: Content[] = [{ role: "user", parts: [{ text: question }] }];
+  const messages: Message[] = [{ role: "user", content: [{ text: question }] }];
   const steps: AgentStep[] = [];
+  const system = [{ text: systemPrompt(now().toISOString().slice(0, 10)) }];
+  const toolConfig = { tools: toolSpecs() };
 
-  async function generate(allowTools: boolean): Promise<Content | undefined> {
+  async function generate() {
     const remaining = deadline - Date.now();
     if (remaining <= 0) throw new AgentError("The agent took too long to answer", 504);
-    let response: Response;
     try {
-      response = await doFetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt(now().toISOString().slice(0, 10)) }] },
-          contents,
-          tools: [{ functionDeclarations: functionDeclarations() }],
-          toolConfig: { functionCallingConfig: { mode: allowTools ? "AUTO" : "NONE" } },
-          generationConfig: { maxOutputTokens: 1024 },
-        }),
-        signal: AbortSignal.timeout(Math.min(remaining, MODEL_CALL_TIMEOUT_MS)),
-      });
+      return await send(
+        { modelId, system, messages, toolConfig, inferenceConfig: { maxTokens: 2048, temperature: 0 } },
+        AbortSignal.timeout(Math.min(remaining, MODEL_CALL_TIMEOUT_MS)),
+      );
     } catch (err) {
-      if (err instanceof Error && err.name === "TimeoutError") throw new AgentError("The agent took too long to answer", 504, true);
-      throw new AgentError("The agent model could not be reached", 502);
+      if (isTimeout(err)) throw new AgentError("The agent took too long to answer", 504, true);
+      if (isBusy(err)) throw new AgentError("The agent model is busy. Try again in a minute.", 502, true);
+      throw new AgentError(`Model request failed (${err instanceof Error ? err.name : "unknown error"})`, 502);
     }
-    if (response.status === 429 || response.status === 503)
-      throw new AgentError("The agent model is busy (free-tier limit). Try again in a minute.", 502, true);
-    if (!response.ok) throw new AgentError(`Model request failed (${response.status})`, 502);
-    const body = (await response.json()) as GeminiResponse;
-    if (body.promptFeedback?.blockReason) throw new AgentError(`The model declined the question (${body.promptFeedback.blockReason})`, 502);
-    return body.candidates?.[0]?.content;
   }
 
+  const done = (answer: string): AgentAnswer => ({ question, answer, steps, model: modelId, answeredAt: now().toISOString() });
+
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    const content = await generate(true);
-    const calls = (content?.parts ?? []).filter((p) => p.functionCall);
-    if (!content || !calls.length) {
-      const answer = answerText(content);
+    const response = await generate();
+    const message = response.output?.message;
+    const calls = (message?.content ?? []).filter((block) => block.toolUse);
+    if (!message || response.stopReason !== "tool_use" || !calls.length) {
+      const answer = replyText(response);
       if (!answer) throw new AgentError("The model returned no answer", 502);
-      return { question, answer, steps, model: geminiModel, answeredAt: now().toISOString() };
+      return done(answer);
     }
 
-    // Echo the model's turn back unchanged: it carries the thought signatures later turns need.
-    contents.push({ role: "model", parts: content.parts });
-    const responses: Part[] = [];
-    for (const part of calls.slice(0, MAX_CALLS_PER_ROUND)) {
-      const { name, args = {}, id } = part.functionCall!;
-      let response: Record<string, unknown>;
+    messages.push(message);
+    const results: ContentBlock[] = [];
+    for (const block of calls.slice(0, MAX_CALLS_PER_ROUND)) {
+      const { name = "", toolUseId, input } = block.toolUse!;
+      const args = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
       try {
         const result = await run(name, args);
         steps.push({ tool: name, args, summary: result.summary, fhirUrls: result.fhirUrls });
-        response = { result: clip(result.data) };
+        results.push({ toolResult: { toolUseId, content: [{ text: JSON.stringify(clip(result.data)) }] } });
       } catch (err) {
-        const message = err instanceof ToolInputError ? err.message : "The tool failed to read the FHIR server";
-        steps.push({ tool: name, args, summary: message, fhirUrls: [], error: true });
-        response = { error: message };
+        const text = err instanceof ToolInputError ? err.message : "The tool failed to read the FHIR server";
+        steps.push({ tool: name, args, summary: text, fhirUrls: [], error: true });
+        results.push({ toolResult: { toolUseId, content: [{ text }], status: "error" } });
       }
-      responses.push({ functionResponse: { name, ...(id ? { id } : {}), response } });
     }
-    // Calls beyond the per-round cap still need an answer, or the model waits for them.
-    for (const part of calls.slice(MAX_CALLS_PER_ROUND)) {
-      const { name, id } = part.functionCall!;
-      responses.push({ functionResponse: { name, ...(id ? { id } : {}), response: { error: "Too many tool calls at once; ask again if needed." } } });
+    // Calls beyond the per-round cap still need a result, or the conversation is invalid.
+    for (const block of calls.slice(MAX_CALLS_PER_ROUND)) {
+      results.push({
+        toolResult: { toolUseId: block.toolUse!.toolUseId, content: [{ text: "Too many tool calls at once; ask again if needed." }], status: "error" },
+      });
     }
-    contents.push({ role: "user", parts: responses });
+    // On the last round, ask for the answer from what has been gathered.
+    if (round === MAX_ROUNDS - 1) results.push({ text: "Answer now from the tool results above. Do not call any more tools." });
+    messages.push({ role: "user", content: results });
   }
 
-  // Out of rounds: ask for the best answer from what has been gathered, with no more tool calls.
-  const final = answerText(await generate(false));
+  const final = replyText(await generate());
   if (!final) throw new AgentError("The model returned no answer", 502);
-  return { question, answer: final, steps, model: geminiModel, answeredAt: now().toISOString() };
+  return done(final);
 }
 
 /**
- * Keeps a free-tier model key usable in public: a few questions per minute per client, a daily cap
- * overall, and recent answers served again for the same question without calling the model.
+ * Keeps the model bill small in public: a few questions per minute per client, and recent answers
+ * served again for the same question without calling the model. The daily cap is shared with the
+ * advisory ({@link llmDailyLimit}).
  */
 export class AgentGuard {
   private readonly perClient = new Map<string, number[]>();
-  private day = "";
-  private dayCount = 0;
   private readonly cache = new Map<string, { answer: AgentAnswer; at: number }>();
 
   constructor(
     readonly perMinute = 5,
-    readonly perDay = 300,
     readonly cacheMs = 10 * 60_000,
   ) {}
 
@@ -239,17 +206,10 @@ export class AgentGuard {
 
   /** Returns a reason to refuse, or undefined and counts the request. */
   admit(client: string, now = Date.now()): string | undefined {
-    const today = new Date(now).toISOString().slice(0, 10);
-    if (today !== this.day) {
-      this.day = today;
-      this.dayCount = 0;
-    }
-    if (this.dayCount >= this.perDay) return "The agent has answered its daily quota of questions. Try again tomorrow.";
     const recent = (this.perClient.get(client) ?? []).filter((t) => now - t < 60_000);
     if (recent.length >= this.perMinute) return `Too many questions: at most ${this.perMinute} a minute. Try again shortly.`;
     recent.push(now);
     this.perClient.set(client, recent);
-    this.dayCount++;
     if (this.perClient.size > 5_000) this.perClient.clear();
     return undefined;
   }

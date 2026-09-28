@@ -1,9 +1,10 @@
 // Plain-language advisory for a clinic, drafted by a language model from an alert the rule engine
 // already decided. The model never decides anything: it is given the risk, its level, the reasons
-// and the narrative, and asked to rewrite them for the person at the clinic desk. If no key is
+// and the narrative, and asked to rewrite them for the person at the clinic desk. If no model is
 // configured the feature stays dormant and the rest of the API is unaffected.
 import { config } from "./config.js";
 import { fhir } from "./fhir.js";
+import { DAILY_LIMIT_MESSAGE, converse, isBusy, isTimeout, llmDailyLimit, llmEnabled, replyText, type Converse } from "./llm.js";
 import type { AlertSummary } from "./alerts.js";
 import { STC_PROFILES } from "./oah.js";
 
@@ -23,7 +24,7 @@ export interface Advisory {
   fhirUrl: string;
 }
 
-export const advisoryEnabled = () => Boolean(config.geminiApiKey);
+export const advisoryEnabled = llmEnabled;
 
 export function advisorDevice(model: string): fhir4.Device {
   return {
@@ -113,51 +114,39 @@ export function buildPrompt(alert: AlertSummary): string {
   ].join("\n");
 }
 
-interface GeminiResponse {
-  candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-  promptFeedback?: { blockReason?: string };
-}
-
 /** Calls the models in turn until one answers. Throws on a failed or empty response; callers decide what to do about it. */
-export async function draftAdvisory(alert: AlertSummary): Promise<{ text: string; model: string }> {
-  const { geminiApiKey, geminiModels } = config;
-  if (!geminiApiKey || !geminiModels.length) throw new Error("No model key configured");
+export async function draftAdvisory(alert: AlertSummary, send: Converse = converse): Promise<{ text: string; model: string }> {
+  const models = config.bedrockModels;
+  if (!models.length) throw new Error("No advisory model configured");
 
   // Busy spells are short: after one pass through the list, pause and try once more.
-  const attempts = [...geminiModels, ...geminiModels];
+  const attempts = [...models, ...models];
   const deadline = Date.now() + 45_000;
   let lastError: Error | undefined;
-  for (const [i, model] of attempts.entries()) {
-    if (i === geminiModels.length) await new Promise((resolve) => setTimeout(resolve, 1500));
+  for (const [i, modelId] of attempts.entries()) {
+    if (i === models.length) await new Promise((resolve) => setTimeout(resolve, 1500));
     const remaining = deadline - Date.now();
     if (remaining <= 1000) break;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-    let response: Response;
+    let text: string;
     try {
-      response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: buildPrompt(alert) }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 400 },
-        }),
-        signal: AbortSignal.timeout(Math.min(remaining, 15_000)),
-      });
+      const response = await send(
+        {
+          modelId,
+          messages: [{ role: "user", content: [{ text: buildPrompt(alert) }] }],
+          inferenceConfig: { temperature: 0.2, maxTokens: 400 },
+        },
+        AbortSignal.timeout(Math.min(remaining, 15_000)),
+      );
+      text = replyText(response);
     } catch (err) {
-      // A model that hangs is as busy as one that says so: try the next.
-      lastError = err instanceof Error && err.name === "TimeoutError" ? new Error("The advisory model took too long") : (err as Error);
+      // A model that hangs or is throttled is tried again later, or the next one is.
+      if (isTimeout(err)) lastError = new Error("The advisory model took too long");
+      else if (isBusy(err)) lastError = new Error(`Model request failed (${(err as Error).name})`);
+      else throw new Error(`Model request failed (${err instanceof Error ? err.name : "unknown error"})`);
       continue;
     }
-    if (response.status === 429 || response.status === 503) {
-      lastError = new Error(`Model request failed (${response.status})`);
-      continue;
-    }
-    if (!response.ok) throw new Error(`Model request failed (${response.status})`);
-
-    const body = (await response.json()) as GeminiResponse;
-    const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim();
-    if (!text) throw new Error(body.promptFeedback?.blockReason ?? "Model returned no text");
-    return { text: `${text}\n\n${DISCLAIMER}`, model };
+    if (!text) throw new Error("Model returned no text");
+    return { text: `${text}\n\n${DISCLAIMER}`, model: modelId };
   }
   throw lastError ?? new Error("The advisory model could not be reached");
 }
@@ -173,7 +162,7 @@ export async function loadAdvisory(alertId: string): Promise<Advisory | undefine
     .flatMap((comm) => toAdvisory(comm) ?? [])[0];
 }
 
-export type AdvisoryResult = Advisory | { error: string; status: 404 | 503 | 502 };
+export type AdvisoryResult = Advisory | { error: string; status: 404 | 429 | 503 | 502 };
 
 // One advisory per alert: an existing one is returned as it is, so the text a clinic already read
 // cannot change under it, and a demo cannot run up a bill.
@@ -182,6 +171,7 @@ export async function adviseOnAlert(alert: AlertSummary | undefined): Promise<Ad
   const existing = await loadAdvisory(alert.id);
   if (existing) return existing;
   if (!advisoryEnabled()) return { error: "The advisory model is not configured on this server", status: 503 };
+  if (!llmDailyLimit.take()) return { error: DAILY_LIMIT_MESSAGE, status: 429 };
 
   let draft: { text: string; model: string };
   try {
