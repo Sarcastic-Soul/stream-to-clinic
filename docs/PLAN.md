@@ -9,9 +9,10 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 
 - **Done:** Stages 0–7, and the Stage 8 documents (README, SUBMISSION.md, DEMO_SCRIPT.md). Installable PWA with offline report queue, report photos (`Media` + `Binary`), alert narrative, FHIR rest-hook Subscription, accessibility pass, code-review fixes. Everything is live.
 - **Validation:** CI checks resources from the real API code against the OAH IG: 0 errors.
-- **Advisory model:** live. `GEMINI_API_KEY` is set on the host and `/health` reports `"advisory": true`; drafts are stored as a `Communication` sent by `Device/stc-ai-advisor` with a `Provenance` naming it author. Draft the notice on a clinic-facing alert (bloom or mosquito) — the low-oxygen rule never notifies a clinic, so the model has little to work with there.
+- **Advisory model:** live, with a list of Gemini models tried in turn when the free tier is busy. `GEMINI_API_KEY` is set on the host and `/health` reports `"advisory": true`; drafts are stored as a `Communication` sent by `Device/stc-ai-advisor` with a `Provenance` naming it author. Draft the notice on a clinic-facing alert (bloom or mosquito) — the low-oxygen rule never notifies a clinic, so the model has little to work with there.
 - **Host:** EC2 `t4g.medium` in us-east-1b, ~1.03 GB of 3.8 GB in use, 22 GB disk free, load 0.06. No resizing needed; room for other projects.
-- **Next:** the demo video, recorded by the pipeline rather than by hand, then submit on Devpost before Oct 4, 9:00 PM PDT. The second team member has been added on Devpost.
+- **Demo video (Sep 28):** recorded by the pipeline, 3:22, at `~/Code/Hackathons/demo-video-pipeline/output/stream-to-clinic/final_demo.mp4`, with the YouTube text in `youtube.txt` beside it. [DEMO_SCRIPT.md](DEMO_SCRIPT.md) describes it and how to record it again. The weather override is off again and the demo bloom alert at Almyros is closed.
+- **Next:** upload the video to YouTube and add the link to SUBMISSION.md and Devpost, then submit on Devpost before Oct 4, 9:00 PM PDT. The second team member has been added on Devpost.
 - **Stage 9 (Sep 28):** all five features and the review leftovers are done: live clinic alerts (SSE and web push), the report journey page, our FSH profiles, SMART on FHIR launch, and the FHIR agent with its MCP server.
 - **Also done:** site FHIR `Bundle` export, a `/standards` page for judges, a UI pass on the map, themes and colours, `Provenance` lineage on every citizen report, clinic acknowledgements that close the One Health loop, Greek/Italian for the citizen surface, the catchment trend view, a model-drafted clinic notice with its own `Provenance`, and Playwright journey tests in CI (Stage 7).
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
@@ -153,13 +154,13 @@ The deadline moved to Oct 4, so five more features go in before the video. Each 
 - [x] **SMART on FHIR launch for the clinic view.** A small SMART App Launch 2.0 authorization server in the API (`/.well-known/smart-configuration`, `/smart/authorize` with a demo clinician sign-in, `/smart/token` with PKCE, a demo EHR at `/smart/ehr`), seeded `Practitioner` and `PractitionerRole` per clinic, and the clinic view as a SMART app (standalone and EHR launch, own small client instead of `fhirclient`). Signed-in replies get a `Provenance` naming the clinician.
 - [x] **FHIR agent.** `POST /agent/ask`: Gemini with function calling over six read-only tools (five app-level reads and one guarded FHIR search) answers questions about the data and returns every FHIR query it ran. The `/ask` page shows the answer and the queries as clickable links. The same tools are served as a remote MCP server at `/mcp` (Streamable HTTP, stateless, no key needed).
 - [x] Review leftovers: alert reason dates now use the site's time zone (from its country); alert, communication and advisory lists follow FHIR paging instead of stopping at one page.
-- [ ] Demo video recorded with the pipeline, after all of the above is live.
+- [x] Demo video recorded with the pipeline, after all of the above is live.
 
 ### Stage 8: Submission (Sep 28 – Oct 4)
 - [x] README: architecture diagram, screenshots, one-command setup
 - [x] Track alignment statement (in [SUBMISSION.md](SUBMISSION.md))
 - [x] Project description: problem, solution, target users, expected impact on ecosystem and human health (in [SUBMISSION.md](SUBMISSION.md))
-- [ ] Demo video, 3–5 minutes (user records; full script in [DEMO_SCRIPT.md](DEMO_SCRIPT.md))
+- [x] Demo video, 3–5 minutes (3:22, made by the pipeline; see [DEMO_SCRIPT.md](DEMO_SCRIPT.md)). Upload to YouTube is left to the user.
 - [ ] Working prototype link and public FHIR endpoint in the submission
 - [ ] Submit on Devpost by Oct 4 evening IST (user)
 
