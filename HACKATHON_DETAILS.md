@@ -1,7 +1,7 @@
 # OneAquaHealth IEEE Global Hackathon
 
 Source: https://oneaquahealth-ieee-hackathon.devpost.com/ (+ /rules, /updates)
-Fetched: 2026-09-18, re-verified 2026-09-19
+Fetched: 2026-09-18, re-verified 2026-09-19 and 2026-09-28
 
 ## Overview
 **Full name:** OneAquaHealth IEEE Global Hackathon: Healthy Waters, Healthy Ecosystems, Healthy Communities
@@ -10,22 +10,22 @@ Fetched: 2026-09-18, re-verified 2026-09-19
 
 **Format:** Online, public. Global (all countries/territories except standard Devpost exceptions).
 
-**Participants:** 891 registered (as of 2026-09-19; was 836 on 2026-09-18)
+**Participants:** 1,132 registered (as of 2026-09-28; 891 on 2026-09-19, 836 on 2026-09-18)
 
 **Contact:** oneaquahealth@ieee.org
 
 ## Dates / Timeline
 The main page, rules page and updates page disagree on several dates. All versions are kept below; the submission deadline is consistent everywhere and is the one that matters.
 
-- **Submission deadline: September 30, 2026, 9:00 PM PDT** (consistent on all pages)
+- **Submission deadline: October 4, 2026, 9:00 PM PDT** (Oct 5, 9:30 AM IST). Extended from September 30 by the "Deadline Extended to October 4" update (~2026-09-26); the main page and rules page both show the new date.
 - Hackathon period:
   - Rules page: September 16 – September 30, 2026
   - Updates page ("Starts Tomorrow" reminder): September 14 – 30, 2026
-  - Main page shows "October 01 at 12:00am EDT to deadline" — this is after the deadline, so it is almost certainly a Devpost misconfiguration. Ignore it.
+  - Main page shows "October 05 at 12:00am EDT" as a start date (earlier: "October 01"); it moves with the deadline and is after it, so it is almost certainly a Devpost misconfiguration. Ignore it.
 - Registration:
   - Rules page: opens May 1, 2026, closes August 31, 2026
-  - Main page: registration still open through Sep 30, 2026
-- Judging: October 1 – October 15, 2026
+  - Main page and the deadline-extension update: registration still open until the deadline
+- Judging: October 1 – October 15, 2026 (rules page, not changed after the extension)
 - Winners announced: October 24, 2026, at the IEEE iGET Conference
 - Certificates distributed within 60 days, expected by December 31, 2026
 
@@ -117,20 +117,24 @@ Main page lists the same five with shorter names and no weights: Impact & Alignm
 - Citizen Science App is also reachable at https://app.enora-oah.eu/login (installable web app; photos, videos, structured scoring of water and habitat conditions)
 - OneAquaHealth Field Sampling Protocols for Urban Stream Ecosystems (CC-BY-4.0): https://zenodo.org/records/20344421
 - FHIR API sandbox — demonstrated in Session 4; no direct link on Devpost
-- Learning Series webinars (see Updates below)
+- Learning Series webinars (see Updates below); recordings of all sessions: https://www.oneaquahealth.eu/project-events/
+- Support: Devpost Discussion board, and the OneAquaHealth Slack (Slack icon in the "To Do" section of the hackathon page)
 - Social: LinkedIn, X, Facebook
 
 ---
 
 ## Updates / Announcements Timeline (newest first)
 
-1. **Help Us Grow the OneAquaHealth Hackathon** (2026-09-19) — recruitment post noting 800+ applicants; asks participants to invite students and researchers interested in AI, data science, citizen science, digital health and freshwater ecosystems.
-2. **Reminder: OneAquaHealth Hackathon Starts Tomorrow** (~2026-09-13) — competition runs Sep 14–30, 2026; submissions due Sep 30, 9:00 PM PDT. Pick one of the 7 tracks and define the problem and impact clearly. Prize pool $3,500+.
-3. **Reminder: Session 4** (~2026-08-26) — "Informatics, Technology & Standards", Aug 27, 2026, 5:00–6:30 PM CET / 8:00–9:30 AM PT. Covers digital health informatics, HL7 FHIR, the OAH-FHIR Implementation Guide, and a hands-on FHIR API sandbox demo. Speakers: Alexander Nikolov, Gora Datta, Stratos Kokolakis, Giorgio Cangioli, Pradyumna Kodgi.
-4. **Register Now – Session 4** (~2026-08-21) — registration notice; practical interoperability and FHIR implementation details.
-5. **Join Us – Session 4** (~2026-08-18) — moves from "One Digital Health and FAIR data" to practical interoperability: how environmental observations, citizen-generated data and health data integrate.
-6. **Join Session 2: Nature as Blueprint** (~June 2026) — June 30, 2026, 8:00–9:30 AM PDT / 5:00–6:30 PM CEST; "Planetary Intelligence and Human Innovation", biomimicry and biological engineering principles.
-7. **Thank You for Registering – Project Introduction Session** (~June 2026) — points registrants to Session 1 on June 12, 2026.
-8. **Join Us on June 12: Introduction to IEEE OneAquaHealth Project** (~May 2026) — June 12, 2026, 7:00–9:00 AM PDT / 4:00–6:00 PM CEST; introduction to the project and hackathon framework.
+1. **Deadline Extended to October 4 – Keep Innovating, Keep Submitting!** (~2026-09-26) — deadline moved to October 4, 2026, 9:00 PM PDT "due to high demand and continued participant interest"; registration stays open for individuals and teams.
+2. **Have Questions? Use the Discussion Board or Join Our OneAquaHealth Slack Community** (~2026-09-23) — Devpost Discussion for public Q&A; Slack for quicker help (Slack icon in the "To Do" section).
+3. **Review Previous Session Recordings Before You Submit** (~2026-09-20) — all learning session recordings at https://www.oneaquahealth.eu/project-events/.
+4. **Help Us Grow the OneAquaHealth Hackathon** (2026-09-19) — recruitment post noting 800+ applicants; asks participants to invite students and researchers interested in AI, data science, citizen science, digital health and freshwater ecosystems.
+5. **Reminder: OneAquaHealth Hackathon Starts Tomorrow** (~2026-09-13) — competition runs Sep 14–30, 2026; submissions due Sep 30, 9:00 PM PDT. Pick one of the 7 tracks and define the problem and impact clearly. Prize pool $3,500+.
+6. **Reminder: Session 4** (~2026-08-26) — "Informatics, Technology & Standards", Aug 27, 2026, 5:00–6:30 PM CET / 8:00–9:30 AM PT. Covers digital health informatics, HL7 FHIR, the OAH-FHIR Implementation Guide, and a hands-on FHIR API sandbox demo. Speakers: Alexander Nikolov, Gora Datta, Stratos Kokolakis, Giorgio Cangioli, Pradyumna Kodgi.
+7. **Register Now – Session 4** (~2026-08-21) — registration notice; practical interoperability and FHIR implementation details.
+8. **Join Us – Session 4** (~2026-08-18) — moves from "One Digital Health and FAIR data" to practical interoperability: how environmental observations, citizen-generated data and health data integrate.
+9. **Join Session 2: Nature as Blueprint** (~June 2026) — June 30, 2026, 8:00–9:30 AM PDT / 5:00–6:30 PM CEST; "Planetary Intelligence and Human Innovation", biomimicry and biological engineering principles.
+10. **Thank You for Registering – Project Introduction Session** (~June 2026) — points registrants to Session 1 on June 12, 2026.
+11. **Join Us on June 12: Introduction to IEEE OneAquaHealth Project** (~May 2026) — June 12, 2026, 7:00–9:00 AM PDT / 4:00–6:00 PM CEST; introduction to the project and hackathon framework.
 
 Not found on Devpost: a "Session 5" update. The earlier version of this file listed "Session 5: Build with OneAquaHealth (Sep 16, 2026)"; that could not be re-confirmed on the updates page and has been removed.

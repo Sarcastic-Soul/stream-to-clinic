@@ -1,7 +1,7 @@
 # Stream-to-Clinic: Project Plan and Progress
 
-Last updated: 2026-09-20
-Submission deadline: **Sep 30, 2026, 9:00 PM PDT** (Oct 1, 9:30 AM IST). Target: submit by Sep 30 evening IST.
+Last updated: 2026-09-28
+Submission deadline: **Oct 4, 2026, 9:00 PM PDT** (Oct 5, 9:30 AM IST), extended from Sep 30 by a Devpost update on 2026-09-26. Target: submit by Oct 4 evening IST.
 
 Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARCHITECTURE.md). Hackathon rules, dates and judges are in [../HACKATHON_DETAILS.md](../HACKATHON_DETAILS.md).
 
@@ -11,7 +11,7 @@ Tech stack, infrastructure and deployment are described in [ARCHITECTURE.md](ARC
 - **Validation:** CI checks resources from the real API code against the OAH IG: 0 errors.
 - **Advisory model:** live. `GEMINI_API_KEY` is set on the host and `/health` reports `"advisory": true`; drafts are stored as a `Communication` sent by `Device/stc-ai-advisor` with a `Provenance` naming it author. Draft the notice on a clinic-facing alert (bloom or mosquito) — the low-oxygen rule never notifies a clinic, so the model has little to work with there.
 - **Host:** EC2 `t4g.medium` in us-east-1b, ~1.03 GB of 3.8 GB in use, 22 GB disk free, load 0.06. No resizing needed; room for other projects.
-- **Next (user):** record the demo video from [DEMO_SCRIPT.md](DEMO_SCRIPT.md), add its link to [SUBMISSION.md](SUBMISSION.md), submit on Devpost before Sep 30, 9:00 PM PDT. Nothing else is outstanding in the code.
+- **Next (user):** record the demo video from [DEMO_SCRIPT.md](DEMO_SCRIPT.md), add its link to [SUBMISSION.md](SUBMISSION.md), submit on Devpost before Oct 4, 9:00 PM PDT. Nothing else is outstanding in the code.
 - **Also done:** site FHIR `Bundle` export, a `/standards` page for judges, a UI pass on the map, themes and colours, `Provenance` lineage on every citizen report, clinic acknowledgements that close the One Health loop, Greek/Italian for the citizen surface, the catchment trend view, a model-drafted clinic notice with its own `Provenance`, and Playwright journey tests in CI (Stage 7).
 - **Optional if time remains:** SMART on FHIR launch; review leftovers: alert reason dates in UTC, 200-item cap on alert/communication lists.
 - **Live:** frontend https://stream-to-clinic.vercel.app · API https://oneaquahealth.duckdns.org · FHIR https://oneaquahealth.duckdns.org/fhir/metadata
@@ -148,7 +148,7 @@ Sites come from the OAH IG examples only (European OAH sites; no other regions).
 - [x] Project description: problem, solution, target users, expected impact on ecosystem and human health (in [SUBMISSION.md](SUBMISSION.md))
 - [ ] Demo video, 3–5 minutes (user records; full script in [DEMO_SCRIPT.md](DEMO_SCRIPT.md))
 - [ ] Working prototype link and public FHIR endpoint in the submission
-- [ ] Submit on Devpost by Sep 30 evening IST (user)
+- [ ] Submit on Devpost by Oct 4 evening IST (user)
 
 ## 6. Demo flow (3–5 minute video)
 
